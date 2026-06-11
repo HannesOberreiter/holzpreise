@@ -1,0 +1,102 @@
+name: Deploy holzpreise
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**.qmd"
+      - "_quarto.yml"
+      - "styles.css"
+      - "assets/**"
+      - "scripts/**"
+      - "docs/**"
+      - "DESCRIPTION"
+      - "renv.lock"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * 1"
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: renv
+          use-public-rspm: true
+
+      - uses: quarto-dev/quarto-actions/setup@v2
+
+      - uses: r-lib/actions/setup-renv@v2
+
+      - name: Fetch and process data
+        run: |
+          Rscript scripts/fetch_tirol_wdb.R
+          Rscript scripts/process_tirol_wdb.R
+          Rscript scripts/fetch_inflation.R
+          Rscript scripts/fetch_context_indices.R
+          Rscript scripts/fetch_agrarforschung_prices.R
+
+      - name: Render site
+        run: quarto render
+
+      - name: Deploy to Bunny Storage
+        env:
+          STORAGE_PASSWORD: ${{ secrets.HOLZPREISE_STORAGE_PASSWORD }}
+          STORAGE_ZONE_NAME: ${{ vars.HOLZPREISE_STORAGE_ZONE_NAME }}
+        run: |
+          BASE_URL="https://storage.bunnycdn.com/${STORAGE_ZONE_NAME}/"
+
+          echo "Listing existing files..."
+          curl -s -w "\nHTTP_CODE:%{http_code}" \
+            -H "AccessKey: ${STORAGE_PASSWORD}" "${BASE_URL}" > /tmp/response.txt
+
+          http_code=$(grep "HTTP_CODE:" /tmp/response.txt | cut -d: -f2)
+          if [ "$http_code" != "200" ]; then
+            echo "ERROR: Failed to list storage (HTTP $http_code)"
+            cat /tmp/response.txt
+            exit 1
+          fi
+
+          echo "Deleting existing files..."
+          grep -o '"ObjectName":"[^"]*"' /tmp/response.txt | cut -d'"' -f4 > /tmp/objects.txt || true
+          if [ -s /tmp/objects.txt ]; then
+            while IFS= read -r name; do
+              if grep -q "\"ObjectName\":\"$name\".*\"IsDirectory\":true" /tmp/response.txt; then
+                suffix="/"
+              else
+                suffix=""
+              fi
+              curl -X DELETE -H "AccessKey: ${STORAGE_PASSWORD}" \
+                "${BASE_URL}${name}${suffix}" -s --fail
+            done < /tmp/objects.txt
+          fi
+
+          echo "Uploading new files..."
+          cd _site
+          find . -type f > /tmp/files.txt
+          while IFS= read -r file; do
+            path="${file#./}"
+            echo "  -> $path"
+            curl -X PUT "${BASE_URL}${path}" \
+              -H "AccessKey: ${STORAGE_PASSWORD}" \
+              --data-binary "@$file" --fail -s || exit 1
+          done < /tmp/files.txt
+          echo "Upload complete!"
+
+      - name: Purge BunnyCDN cache
+        env:
+          BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
+          PULL_ZONE_ID: ${{ vars.HOLZPREISE_PULL_ZONE_ID }}
+        run: |
+          curl -X POST "https://api.bunny.net/pullzone/${PULL_ZONE_ID}/purgeCache" \
+            -H "AccessKey: ${BUNNY_API_KEY}" --fail -s
+          echo "Cache purged."
+
+# Required GitHub secrets / variables (repo Settings → Secrets and variables):
+#   Secrets: HOLZPREISE_STORAGE_PASSWORD, BUNNY_API_KEY
+#   Variables: HOLZPREISE_STORAGE_ZONE_NAME, HOLZPREISE_PULL_ZONE_ID

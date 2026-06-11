@@ -1,0 +1,28 @@
+# R
+.Rhistory
+.RData
+.Ruserdata
+.renv
+
+# Quarto
+_site/
+.quarto/
+freeze/
+_freeze/
+
+# Data outputs
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# Local bootstrap/cache
+.renv-bootstrap/
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
+
+/.quarto/

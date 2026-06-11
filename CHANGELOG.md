@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/HannesOberreiter/holzpreise/compare/v1.0.0...v1.1.0) (2026-06-11)
+
+
+### Features
+
+* :sparkles: add changelog ([fee631e](https://github.com/HannesOberreiter/holzpreise/commit/fee631ee203550e9bc8ad0eb005cc4bb446dcd89))
+
 ## 1.0.0 (2026-06-11)
 
 

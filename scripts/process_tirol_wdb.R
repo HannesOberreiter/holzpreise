@@ -1,6 +1,7 @@
 #!/usr/bin/env Rscript
 
-# Parse public Tirol Walddatenbank index tables from fetched HTML.
+# Process public Tirol Walddatenbank index tables from raw HTML.
+# Raw files are downloaded by scripts/fetch_raw.sh.
 
 raw_dir <- file.path("data", "raw")
 processed_dir <- file.path("data", "processed")
@@ -87,12 +88,20 @@ sources <- list(
   list(file = "tirol_wdb_bhi_jahr.html", source = "Tirol Walddatenbank BHI Jahr", index = "BHI-Tirol", frequency = "Jahr")
 )
 
+required_files <- file.path(raw_dir, vapply(sources, `[[`, character(1), "file"))
+missing_files <- required_files[!file.exists(required_files) | file.info(required_files)$size == 0]
+
+if (length(missing_files) > 0) {
+  stop(
+    "Missing raw Tirol files: ",
+    paste(missing_files, collapse = ", "),
+    ". Run: scripts/fetch_raw.sh",
+    call. = FALSE
+  )
+}
+
 rows <- lapply(sources, function(source) {
   path <- file.path(raw_dir, source$file)
-  if (!file.exists(path)) {
-    warning("Missing ", path, ". Run: Rscript scripts/fetch_tirol_wdb.R")
-    return(data.frame())
-  }
   extract_table(path, source$source, source$index, source$frequency)
 })
 

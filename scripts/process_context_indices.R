@@ -1,12 +1,11 @@
 #!/usr/bin/env Rscript
 
-# Fetch context indices that help interpret timber prices:
+# Process context indices that help interpret timber prices.
+# Raw CSV files are downloaded by scripts/fetch_raw.sh:
 # - consumer energy price indices from Statistik Austria VPI 2020 COICOP18
 # - wood/wood-product producer and wholesale indices from Statistik Austria
 
 library(tidyverse)
-
-source(file.path("scripts", "helper.R"))
 
 raw_dir <- file.path("data", "raw")
 processed_dir <- file.path("data", "processed")
@@ -23,9 +22,10 @@ parse_year_month <- function(code, prefix) {
 
 # VPI energy components -------------------------------------------------------
 
-vpi_url <- "https://data.statistik.gv.at/data/OGD_vpi20c18_VPI_2020COICOP18_1.csv"
 vpi_raw_path <- file.path(raw_dir, "statistik_austria_vpi_2020_coicop18.csv")
-download_file_with_retries(vpi_url, vpi_raw_path)
+if (!file.exists(vpi_raw_path)) {
+  stop("Missing raw file: ", vpi_raw_path, ". Run: scripts/fetch_raw.sh", call. = FALSE)
+}
 
 vpi_raw <- read_csv2(vpi_raw_path, show_col_types = FALSE)
 
@@ -70,9 +70,10 @@ write_csv(energy_indices_annual, file.path(processed_dir, "energy_price_indices_
 
 # Producer price index: wood products ----------------------------------------
 
-epi_url <- "https://data.statistik.gv.at/data/OGD_epi2021cpa15_EPI_2021_OECPA_1.csv"
 epi_raw_path <- file.path(raw_dir, "statistik_austria_epi_2021_oecpa.csv")
-download_file_with_retries(epi_url, epi_raw_path)
+if (!file.exists(epi_raw_path)) {
+  stop("Missing raw file: ", epi_raw_path, ". Run: scripts/fetch_raw.sh", call. = FALSE)
+}
 
 epi_raw <- read_csv2(epi_raw_path, show_col_types = FALSE)
 
@@ -93,9 +94,10 @@ epi_wood <- epi_raw |>
 
 # Wholesale price index: raw wood and semi-finished wood ----------------------
 
-ghpi_url <- "https://data.statistik.gv.at/data/OGD_pregpi003_GHPI_20_1.csv"
 ghpi_raw_path <- file.path(raw_dir, "statistik_austria_ghpi_2020.csv")
-download_file_with_retries(ghpi_url, ghpi_raw_path)
+if (!file.exists(ghpi_raw_path)) {
+  stop("Missing raw file: ", ghpi_raw_path, ". Run: scripts/fetch_raw.sh", call. = FALSE)
+}
 
 ghpi_raw <- read_csv2(ghpi_raw_path, show_col_types = FALSE)
 

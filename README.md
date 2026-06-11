@@ -21,11 +21,11 @@ Rscript scripts/setup_renv.R
 Fetch/process data and render site:
 
 ```bash
-Rscript scripts/fetch_tirol_wdb.R
+scripts/fetch_raw.sh
 Rscript scripts/process_tirol_wdb.R
-Rscript scripts/fetch_inflation.R
-Rscript scripts/fetch_context_indices.R
-Rscript scripts/fetch_agrarforschung_prices.R
+Rscript scripts/process_inflation.R
+Rscript scripts/process_context_indices.R
+Rscript scripts/process_agrarforschung_prices.R
 quarto render
 ```
 

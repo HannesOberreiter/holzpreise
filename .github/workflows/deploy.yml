@@ -9,6 +9,7 @@ on:
       - "styles.css"
       - "assets/**"
       - "scripts/**"
+      - "edge-script.ts"
       - "DESCRIPTION"
       - "renv.lock"
       - ".github/workflows/deploy.yml"
@@ -32,13 +33,15 @@ jobs:
 
       - uses: r-lib/actions/setup-renv@v2
 
-      - name: Fetch and process data
+      - name: Fetch raw data
+        run: scripts/fetch_raw.sh
+
+      - name: Process data
         run: |
-          Rscript scripts/fetch_tirol_wdb.R
           Rscript scripts/process_tirol_wdb.R
-          Rscript scripts/fetch_inflation.R
-          Rscript scripts/fetch_context_indices.R
-          Rscript scripts/fetch_agrarforschung_prices.R
+          Rscript scripts/process_inflation.R
+          Rscript scripts/process_context_indices.R
+          Rscript scripts/process_agrarforschung_prices.R
 
       - name: Render site
         run: quarto render

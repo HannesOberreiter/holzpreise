@@ -1,18 +1,18 @@
 #!/usr/bin/env Rscript
 
-# Fetch Austria annual CPI for inflation adjustment.
+# Process Austria annual CPI for inflation adjustment.
+# Raw CSV is downloaded by scripts/fetch_raw.sh.
 # Source: Statistik Austria Open Data, Verbraucherpreisindex Basis 1976.
-
-source(file.path("scripts", "helper.R"))
 
 raw_dir <- file.path("data", "raw")
 processed_dir <- file.path("data", "processed")
 dir.create(raw_dir, recursive = TRUE, showWarnings = FALSE)
 dir.create(processed_dir, recursive = TRUE, showWarnings = FALSE)
 
-url <- "https://data.statistik.gv.at/data/OGD_vpi76_VPI_1976_1.csv"
 raw_path <- file.path(raw_dir, "statistik_austria_vpi_1976.csv")
-download_file_with_retries(url, raw_path)
+if (!file.exists(raw_path)) {
+  stop("Missing raw file: ", raw_path, ". Run: scripts/fetch_raw.sh", call. = FALSE)
+}
 
 vpi_raw <- utils::read.csv2(raw_path, stringsAsFactors = FALSE, check.names = FALSE)
 

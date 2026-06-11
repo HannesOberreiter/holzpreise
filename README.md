@@ -1,5 +1,7 @@
 # Holzpreise Österreich
 
+[![Deploy holzpreise](https://github.com/HannesOberreiter/holzpreise/actions/workflows/deploy.yml/badge.svg)](https://github.com/HannesOberreiter/holzpreise/actions/workflows/deploy.yml)
+
 R/Quarto website for Austrian timber price transparency. The site renders current price cards, market-price pages, long-term Tirol inflation analysis, context pages, glossary, and calculators.
 
 ## Development

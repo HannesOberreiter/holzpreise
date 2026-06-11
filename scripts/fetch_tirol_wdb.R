@@ -3,6 +3,8 @@
 # Fetch Tirol Walddatenbank public pages.
 # These pages contain machine-readable HTML tables for RUPI/BHI indices.
 
+source(file.path("scripts", "helper.R"))
+
 raw_dir <- file.path("data", "raw")
 dir.create(raw_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -49,7 +51,7 @@ sources <- data.frame(
 for (i in seq_len(nrow(sources))) {
   target <- file.path(raw_dir, sources$local_file[[i]])
   sources$status[[i]] <- tryCatch({
-    utils::download.file(sources$url[[i]], target, mode = "wb", quiet = TRUE)
+    download_file_with_retries(sources$url[[i]], target)
     "downloaded"
   }, error = function(e) {
     paste("failed:", conditionMessage(e))

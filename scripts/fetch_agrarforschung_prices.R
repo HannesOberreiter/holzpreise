@@ -6,6 +6,8 @@
 library(tidyverse)
 library(jsonlite)
 
+source(file.path("scripts", "helper.R"))
+
 raw_dir <- file.path("data", "raw", "agrarforschung")
 processed_dir <- file.path("data", "processed")
 dir.create(raw_dir, recursive = TRUE, showWarnings = FALSE)
@@ -80,7 +82,7 @@ sources <- tribble(
 fetch_one <- function(content_id) {
   url <- str_c(base_url, "?contentId=", content_id)
   raw_path <- file.path(raw_dir, str_c(content_id, ".json"))
-  download.file(url, raw_path, mode = "wb", quiet = TRUE)
+  download_file_with_retries(url, raw_path)
   payload <- fromJSON(raw_path, flatten = TRUE)
   if (!is.null(payload$error)) {
     stop(str_c("API error for ", content_id, ": ", payload$error))

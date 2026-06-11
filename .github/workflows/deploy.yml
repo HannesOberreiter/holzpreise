@@ -9,7 +9,6 @@ on:
       - "styles.css"
       - "assets/**"
       - "scripts/**"
-      - "docs/**"
       - "DESCRIPTION"
       - "renv.lock"
       - ".github/workflows/deploy.yml"

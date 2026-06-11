@@ -1,0 +1,242 @@
+---
+title: "Marktpreise Österreich"
+---
+
+```{r}
+#| include: false
+library(tidyverse)
+library(DT)
+library(plotly)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+dt_table <- function(data, page_length = 10, escape = TRUE) {
+  german_language <- list(
+    search = "Suchen:",
+    lengthMenu = "_MENU_ Einträge anzeigen",
+    info = "Zeige _START_ bis _END_ von _TOTAL_ Einträgen",
+    infoEmpty = "Keine Einträge",
+    infoFiltered = "(gefiltert aus _MAX_ Einträgen)",
+    zeroRecords = "Keine passenden Einträge gefunden",
+    paginate = list(
+      first = "Erste",
+      previous = "Zurück",
+      `next` = "Weiter",
+      last = "Letzte"
+    )
+  )
+
+  data |>
+    as_tibble() |>
+    mutate(across(where(is.double), ~ round(.x, 2))) |>
+    rename_with(~ .x |> str_replace_all("_", " ") |> str_to_sentence()) |>
+    datatable(
+      rownames = FALSE,
+      filter = "top",
+      escape = escape,
+      options = list(pageLength = page_length, scrollX = TRUE, language = german_language)
+    )
+}
+
+prices_path <- file.path("data", "processed", "agrarforschung_prices_monthly.csv")
+prices <- if (file.exists(prices_path)) read_csv(prices_path, show_col_types = FALSE) else tibble()
+prices <- prices |> mutate(datum = as.Date(datum))
+```
+
+## Österreichweite Marktanalyse
+
+Diese Seite zeigt die bundesweiten Reihen von [preise.agrarforschung.at](https://preise.agrarforschung.at/content/inlandspreise-fuer-holz): Sägerundholz und Industrierundholz. Bundesland-Seiten sind im Menü unter **Marktpreise** verfügbar.
+
+**Hinweis zur Einheit:** Die österreichweiten Statistik-Austria-Reihen kommen aus der Quelle mit `EURO/M3`. Die Bundesland-/LK-Reihen verwenden meist `EUR/FM`. Bei Rundholz ist `m³` hier als feste Holzmenge zu verstehen und grob mit Festmeter vergleichbar. Die Website lässt die Originaleinheit stehen, damit die Quelle nachvollziehbar bleibt. Siehe auch [Glossar](glossar.qmd).
+
+```{r}
+#| results: asis
+if (nrow(prices) > 0) {
+  summary_rows <- prices |>
+    filter(content_id %in% c("saegeholz_monatl", "industrierundholz_monatl")) |>
+    filter(attr_code %in% c("at_blochholz_fita_klbmed2b_monat", "at_faserholz_fita_monat")) |>
+    filter(!is.na(preis), preis > 0) |>
+    arrange(attr_code, datum) |>
+    group_by(attr_code, sortiment, einheit) |>
+    mutate(preis_vorjahr = preis[which.min(abs(datum - (max(datum) %m-% months(12))))]) |>
+    filter(datum == max(datum)) |>
+    ungroup() |>
+    mutate(aenderung = (preis / preis_vorjahr - 1) * 100)
+
+  if (nrow(summary_rows) > 0) {
+    text <- summary_rows |>
+      mutate(satz = str_c(
+        "**", sortiment, "** liegt aktuell bei **", round(preis, 2), " ", einheit, "**",
+        if_else(!is.na(aenderung), str_c(" (", if_else(aenderung >= 0, "+", ""), round(aenderung, 1), " % gegenüber etwa vor einem Jahr)"), "")
+      )) |>
+      pull(satz) |>
+      str_c(collapse = "; ")
+
+    cat(str_c("**Kurzfassung:** ", text, "."))
+  }
+}
+```
+
+## Inlandspreise für Holz
+
+Die Grafik zeigt monatliche Inlandspreise für Säge- und Industrierundholz in Österreich. Über die Legende können Sortimente ein- oder ausgeblendet werden.
+
+```{r}
+if (nrow(prices) > 0) {
+  inland_holz <- prices |>
+    filter(content_id %in% c("saegeholz_monatl", "industrierundholz_monatl")) |>
+    mutate(reihe = str_c(sortiment, " (", einheit, ")"))
+
+  p <- ggplot(inland_holz, aes(
+    x = datum,
+    y = preis,
+    color = reihe,
+    group = reihe,
+    text = str_c(
+      "Sortiment: ", sortiment,
+      "<br>Datum: ", datum,
+      "<br>Preis: ", round(preis, 2), " ", einheit,
+      "<br>Quelle: ", titel
+    )
+  )) +
+    geom_line() +
+    labs(
+      x = "Zeit",
+      y = "Preis",
+      color = "Sortiment",
+      title = "Inlandspreise für Rundholz in Österreich"
+    ) +
+    theme_minimal() +
+    theme(legend.position = "bottom")
+
+  ggplotly(p, tooltip = "text")
+} else {
+  tibble(Hinweis = "Daten fehlen. Starte: Rscript scripts/process_agrarforschung_prices.R") |> dt_table()
+}
+```
+
+## Nominal und inflationsbereinigt: Blochholz Fichte/Tanne Media 2b
+
+Diese Grafik ist mit der Tirol-Inflationsgrafik vergleichbar. Sie nutzt den österreichweiten Preis für `Blochholz Fichte/Tanne Kl. B Media 2b` und rechnet ihn mit dem Statistik-Austria-VPI auf heutige Kaufkraft um.
+
+```{r}
+cpi_path <- file.path("data", "processed", "inflation_austria_cpi.csv")
+if (nrow(prices) > 0 && file.exists(cpi_path)) {
+  cpi <- read_csv(cpi_path, show_col_types = FALSE)
+  basisjahr <- max(cpi$jahr, na.rm = TRUE)
+  basis_cpi <- cpi |> filter(jahr == basisjahr) |> pull(cpi) |> first()
+
+  media2b_real <- prices |>
+    filter(content_id == "saegeholz_monatl", attr_code == "at_blochholz_fita_klbmed2b_monat") |>
+    summarise(preis_nominal = mean(preis, na.rm = TRUE), .by = jahr) |>
+    left_join(cpi |> select(jahr, cpi), by = "jahr") |>
+    mutate(preis_real = preis_nominal * basis_cpi / cpi) |>
+    filter(!is.na(preis_real)) |>
+    arrange(jahr)
+
+  media2b_long <- media2b_real |>
+    select(jahr, nominal = preis_nominal, inflationsbereinigt = preis_real) |>
+    pivot_longer(c(nominal, inflationsbereinigt), names_to = "reihe", values_to = "preis")
+
+  p <- ggplot(media2b_long, aes(
+    x = jahr,
+    y = preis,
+    color = reihe,
+    group = reihe,
+    text = str_c(
+      "Reihe: ", reihe,
+      "<br>Jahr: ", jahr,
+      "<br>Preis: ", round(preis, 2), " EUR/M3"
+    )
+  )) +
+    geom_line() +
+    geom_point(size = 1) +
+    labs(
+      x = "Jahr",
+      y = "EUR/M3 in Kaufkraft des Basisjahres",
+      color = "Reihe",
+      title = "Blochholz Fichte/Tanne Media 2b: nominal und inflationsbereinigt"
+    ) +
+    theme_minimal() +
+    theme(legend.position = "bottom")
+
+  ggplotly(p, tooltip = "text")
+} else {
+  media2b_real <- tibble()
+  tibble(Hinweis = "Daten fehlen.") |> dt_table()
+}
+```
+
+### Beispiel aus dem Alltag
+
+```{r}
+#| results: asis
+if (exists("media2b_real") && nrow(media2b_real) > 0) {
+  latest <- media2b_real |> arrange(jahr) |> slice_tail(n = 1)
+  beispiel_m3 <- 24
+  nominal_erloes <- latest$preis_nominal * beispiel_m3
+  real_erloes <- latest$preis_real * beispiel_m3
+
+  cat(str_c(
+    "Bei **", beispiel_m3, " m³ Blochholz Fichte/Tanne Media 2b** ergibt der letzte österreichweite Jahresmittelwert grob **",
+    format(round(nominal_erloes, 0), big.mark = ".", decimal.mark = ","), " € nominal**. ",
+    "Inflationsbereinigt sind das ungefähr **",
+    format(round(real_erloes, 0), big.mark = ".", decimal.mark = ","), " € in Kaufkraft von ", basisjahr, "**. ",
+    "Das ist keine Abrechnung, sondern zeigt den Unterschied zwischen Europreis und realer Kaufkraft."
+  ))
+}
+```
+
+<details>
+<summary>Tabelle: Inlandspreise für Holz</summary>
+
+```{r}
+if (nrow(prices) > 0) {
+  prices |>
+    filter(content_id %in% c("saegeholz_monatl", "industrierundholz_monatl")) |>
+    transmute(
+      datum,
+      jahr,
+      monat,
+      kategorie = if_else(content_id == "saegeholz_monatl", "Sägerundholz", "Industrierundholz"),
+      sortiment,
+      preis,
+      einheit
+    ) |>
+    arrange(desc(datum), kategorie, sortiment) |>
+    dt_table(25)
+} else {
+  tibble() |> dt_table()
+}
+```
+
+</details>
+
+## Einfache Einordnung
+
+- Sägerundholz und Industrierundholz sind unterschiedliche Märkte und Einheiten können abweichen.
+- Für langfristige Kaufkraft zählt die inflationsbereinigte Linie mehr als der reine Europreis.
+- Bundeslandwerte können als Preisbereiche vorliegen; die österreichweiten Reihen sind aggregierte Marktpreise.
+
+<details>
+<summary>Datenquellen und Datenstand</summary>
+
+```{r}
+if (nrow(prices) > 0) {
+  prices |>
+    filter(content_id %in% c("saegeholz_monatl", "industrierundholz_monatl")) |>
+    summarise(
+      von = min(datum),
+      bis = max(datum),
+      zeilen = n(),
+      sortimente = n_distinct(sortiment),
+      .by = c(gruppe, titel)
+    ) |>
+    select(gruppe, titel, von, bis, zeilen, sortimente) |>
+    arrange(gruppe, titel) |>
+    dt_table(25)
+} else {
+  tibble() |> dt_table()
+}
+```
+
+</details>

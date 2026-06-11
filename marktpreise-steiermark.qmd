@@ -1,0 +1,7 @@
+---
+title: "Marktpreise Steiermark"
+params:
+  bundesland: "Steiermark"
+---
+
+{{< include _marktpreise-bundesland-content.qmd >}}

@@ -1,0 +1,7 @@
+---
+title: "Marktpreise Tirol"
+params:
+  bundesland: "Tirol"
+---
+
+{{< include _marktpreise-bundesland-content.qmd >}}

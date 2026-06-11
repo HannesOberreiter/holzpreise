@@ -1,0 +1,7 @@
+---
+title: "Marktpreise Burgenland"
+params:
+  bundesland: "Burgenland"
+---
+
+{{< include _marktpreise-bundesland-content.qmd >}}

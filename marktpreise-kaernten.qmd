@@ -1,0 +1,7 @@
+---
+title: "Marktpreise Kärnten"
+params:
+  bundesland: "Kärnten"
+---
+
+{{< include _marktpreise-bundesland-content.qmd >}}

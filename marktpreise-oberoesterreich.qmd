@@ -1,0 +1,7 @@
+---
+title: "Marktpreise Oberösterreich"
+params:
+  bundesland: "Oberösterreich"
+---
+
+{{< include _marktpreise-bundesland-content.qmd >}}

@@ -1,0 +1,7 @@
+---
+title: "Marktpreise Niederösterreich"
+params:
+  bundesland: "Niederösterreich"
+---
+
+{{< include _marktpreise-bundesland-content.qmd >}}

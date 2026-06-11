@@ -1,0 +1,7 @@
+---
+title: "Marktpreise Vorarlberg"
+params:
+  bundesland: "Vorarlberg"
+---
+
+{{< include _marktpreise-bundesland-content.qmd >}}

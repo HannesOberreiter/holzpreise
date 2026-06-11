@@ -1,0 +1,7 @@
+---
+title: "Marktpreise Salzburg"
+params:
+  bundesland: "Salzburg"
+---
+
+{{< include _marktpreise-bundesland-content.qmd >}}

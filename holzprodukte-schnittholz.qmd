@@ -1,0 +1,165 @@
+---
+title: "Holzprodukte und Schnittholz"
+---
+
+```{r}
+#| include: false
+library(tidyverse)
+library(DT)
+library(plotly)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+dt_table <- function(data, page_length = 10, escape = TRUE) {
+  german_language <- list(
+    search = "Suchen:",
+    lengthMenu = "_MENU_ Einträge anzeigen",
+    info = "Zeige _START_ bis _END_ von _TOTAL_ Einträgen",
+    infoEmpty = "Keine Einträge",
+    infoFiltered = "(gefiltert aus _MAX_ Einträgen)",
+    zeroRecords = "Keine passenden Einträge gefunden",
+    paginate = list(first = "Erste", previous = "Zurück", `next` = "Weiter", last = "Letzte")
+  )
+
+  data |>
+    as_tibble() |>
+    mutate(across(where(is.double), ~ round(.x, 2))) |>
+    rename_with(~ .x |> str_replace_all("_", " ") |> str_to_sentence()) |>
+    datatable(
+      rownames = FALSE,
+      filter = "top",
+      escape = escape,
+      options = list(pageLength = page_length, scrollX = TRUE, language = german_language)
+    )
+}
+
+prices_path <- file.path("data", "processed", "agrarforschung_prices_monthly.csv")
+prices <- if (file.exists(prices_path)) read_csv(prices_path, show_col_types = FALSE) else tibble()
+prices <- prices |> mutate(datum = as.Date(datum))
+```
+
+## Warum eigene Seite?
+
+Exportpreise für Holzprodukte und internationale Schnittholzpreise sind **keine Waldpreise**. Sie liegen weiter hinten in der Wertschöpfungskette: Rundholz wird geschlägert, transportiert, eingeschnitten, getrocknet, verarbeitet und gehandelt. Erst danach entstehen Schnittholz, Platten, Zellstoff oder Papier.
+
+Trotzdem sind diese Reihen nützlich: Sie zeigen, ob nachgelagerte Märkte unter Druck stehen. Wenn Schnittholz oder Holzprodukte stark steigen, kann das ein Hinweis auf hohe Nachfrage sein. Beim Waldbesitzer kommt das aber nicht automatisch 1:1 an, weil Sägewerke, Transport, Lager, Energie, Verträge und Qualität dazwischen liegen.
+
+## Exportpreise und internationale Schnittholzpreise
+
+Unterschiedliche Reihen haben unterschiedliche Einheiten. Deshalb wird die Entwicklung als Index gezeigt: erster verfügbarer Wert = 100.
+
+Für Laien sind vor allem diese Reihen wichtig:
+
+- **Nadelholz gesägt**: am nächsten an klassischem Schnittholz aus Fichte/Tanne/Kiefer. Für Österreich besonders relevant, weil Nadelholz und Sägeindustrie zentral sind.
+- **Nadelschnittholz profiliert**: weiter verarbeitetes Schnittholz, z. B. gehobelt/profiliert. Näher am Bau- und Verarbeitungsmarkt.
+- **Span- und ähnliche Platten**: relevant für Holzwerkstoffindustrie, Möbel, Innenausbau. Nicht direkt Rundholzpreis, aber Nachfrage nach Holzrohstoffen kann mitspielen.
+- **Zellstoff und Papier/Pappe**: eher Industrie-/Faserholz-Kontext. Wichtig, aber weiter weg vom Blochholzpreis.
+- **Schwedische Kiefer**: europäischer Referenzpreis für Schnittholz. Für Österreich hilfreicher als reine US-Märkte, weil näher am europäischen Markt.
+- **Chicago Futures**: globaler Stimmungsindikator, aber für österreichische Waldbesitzer:innen nur indirekt relevant.
+
+```{r}
+if (nrow(prices) > 0) {
+  products <- prices |>
+    filter(content_id %in% c("holzprodukte", "schnittholz_chicago", "schnittholz_schwedische_kiefer")) |>
+    group_by(content_id, sortiment, einheit) |>
+    arrange(datum) |>
+    mutate(index_start = preis / first(preis) * 100) |>
+    ungroup() |>
+    mutate(reihe = str_c(sortiment, " (", einheit, ")"))
+
+  p <- ggplot(products, aes(
+    x = datum,
+    y = index_start,
+    color = reihe,
+    group = reihe,
+    text = str_c("Reihe: ", reihe, "<br>Datum: ", datum, "<br>Wert: ", round(preis, 2), " ", einheit)
+  )) +
+    geom_line() +
+    labs(x = "Zeit", y = "Index, erster Wert = 100", color = "Reihe", title = "Exportpreise und internationale Schnittholzpreise") +
+    theme_minimal() +
+    theme(legend.position = "bottom")
+
+  ggplotly(p, tooltip = "text")
+} else {
+  products <- tibble()
+  tibble(Hinweis = "Daten fehlen. Starte: Rscript scripts/process_agrarforschung_prices.R") |> dt_table()
+}
+```
+
+## Holzprodukte und Holzhalbwaren: offizielle Indizes
+
+Diese Grafik zeigt zusätzliche Statistik-Austria-Indizes für nachgelagerte Marktstufen: den [Erzeugerpreisindex 2021 ÖCPA](https://data.statistik.gv.at/data/OGD_epi2021cpa15_EPI_2021_OECPA_1.csv) und den [Großhandelspreisindex 2020](https://data.statistik.gv.at/data/OGD_pregpi003_GHPI_20_1.csv).
+
+Der Unterschied zur vorherigen Grafik: Hier geht es nicht um einzelne Export- oder internationale Preisreihen, sondern um **offizielle Preisindizes**. Sie sind breiter aggregiert und dadurch stabiler, aber weniger konkret. Für die Einordnung sind sie gut, weil sie zeigen, ob Holzprodukte in Produktion und Großhandel insgesamt teurer oder billiger werden.
+
+```{r}
+wood_context_path <- file.path("data", "processed", "wood_product_indices_annual.csv")
+if (file.exists(wood_context_path)) {
+  wood_context <- read_csv(wood_context_path, show_col_types = FALSE) |>
+    filter(vollstaendiges_jahr)
+
+  wood_plot <- ggplot(wood_context, aes(
+    x = jahr,
+    y = index,
+    color = reihe,
+    group = reihe,
+    text = str_c("Reihe: ", reihe, "<br>Jahr: ", jahr, "<br>Index: ", round(index, 2), "<br>Quelle: ", quelle)
+  )) +
+    geom_line() +
+    geom_point(size = 1) +
+    labs(x = "Jahr", y = "Index laut Quelle", color = "Reihe", title = "Holzprodukte und Holzhalbwaren: offizielle Preisindizes") +
+    theme_minimal() +
+    theme(legend.position = "bottom")
+
+  ggplotly(wood_plot, tooltip = "text")
+} else {
+  wood_context <- tibble()
+  tibble(Hinweis = "Daten fehlen. Starte: Rscript scripts/process_context_indices.R") |> dt_table()
+}
+```
+
+## Was bedeutet das?
+
+- **Exportpreise Holzprodukte** zeigen Preise für verarbeitete Waren im Außenhandel.
+- **Internationale Schnittholzpreise** zeigen wichtige Vergleichsmärkte, aber nicht österreichische Rundholzpreise.
+- **Holzprodukt- und Holzhalbwaren-Indizes** zeigen Produktion/Großhandel, nicht den Preis am Waldweg.
+- Für österreichische Waldbesitzer:innen ist **Nadelholz gesägt** meist die verständlichste Exportreihe, weil sie am ehesten mit Sägerundholz und Schnittholz zusammenhängt.
+- **Schwedische Kiefer** ist als europäischer Vergleich leichter einzuordnen als Chicago-Futures.
+- **Chicago-Futures** können stark schwanken und sind eher ein globales Marktsignal als eine lokale Preisorientierung.
+
+<details>
+<summary>Datentabelle</summary>
+
+```{r}
+if (nrow(products) > 0) {
+  products |>
+    select(datum, gruppe, sortiment, preis, einheit, index_start) |>
+    arrange(desc(datum), gruppe, sortiment) |>
+    dt_table(25)
+} else {
+  tibble() |> dt_table()
+}
+```
+
+</details>
+
+<details>
+<summary>Datenquellen und Datenstand</summary>
+
+```{r}
+if (nrow(products) > 0) {
+  products |>
+    summarise(von = min(datum), bis = max(datum), zeilen = n(), .by = c(gruppe, titel)) |>
+    select(gruppe, titel, von, bis, zeilen) |>
+    dt_table(25)
+}
+```
+
+```{r}
+if (exists("wood_context") && nrow(wood_context) > 0) {
+  wood_context |>
+    summarise(von = min(jahr), bis = max(jahr), reihen = n_distinct(reihe)) |>
+    dt_table()
+}
+```
+
+</details>

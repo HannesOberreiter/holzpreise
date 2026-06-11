@@ -23,6 +23,8 @@ Diese Website analysiert Holzpreise aus zwei Quellensträngen:
 
 Der Code ist offen auf GitHub verfügbar: <https://github.com/HannesOberreiter/holzpreise>. Datenquellen, Verarbeitung und Website können nachvollzogen und reproduziert werden.
 
+Version: `r if (file.exists("version.txt")) readLines("version.txt", warn = FALSE)[1] else "Dev"`
+
 ## Impressum
 
 Medieninhaber und für den Inhalt verantwortlich:

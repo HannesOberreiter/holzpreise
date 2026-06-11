@@ -1,0 +1,201 @@
+---
+title: "Energie"
+---
+
+```{r}
+#| include: false
+library(tidyverse)
+library(DT)
+library(plotly)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+dt_table <- function(data, page_length = 10, escape = TRUE) {
+  german_language <- list(
+    search = "Suchen:",
+    lengthMenu = "_MENU_ Einträge anzeigen",
+    info = "Zeige _START_ bis _END_ von _TOTAL_ Einträgen",
+    infoEmpty = "Keine Einträge",
+    infoFiltered = "(gefiltert aus _MAX_ Einträgen)",
+    zeroRecords = "Keine passenden Einträge gefunden",
+    paginate = list(first = "Erste", previous = "Zurück", `next` = "Weiter", last = "Letzte")
+  )
+
+  data |>
+    as_tibble() |>
+    mutate(across(where(is.double), ~ round(.x, 2))) |>
+    rename_with(~ .x |> str_replace_all("_", " ") |> str_to_sentence()) |>
+    datatable(rownames = FALSE, filter = "top", escape = escape,
+      options = list(pageLength = page_length, scrollX = TRUE, language = german_language))
+}
+```
+
+## Warum Energie?
+
+Holzpreise werden oft als Europreis gelesen. Für eine faire Einordnung braucht man Energie- und Kostenkontext: Pellets, Diesel und Rundholz laufen nicht automatisch gleich. Diese Seite zeigt deshalb keine Preisempfehlung, sondern Orientierung.
+
+## Holzpreise, Pellets und Diesel im Vergleich
+
+Quelle ist [preise.agrarforschung.at](https://preise.agrarforschung.at/content/inlandspreise-fuer-holz), inklusive [Pellets](https://preise.agrarforschung.at/content/inlandspreise-fuer-pellets) und [Diesel](https://preise.agrarforschung.at/content/diesel). Die Grafik setzt alle Reihen auf das Jahr 2010 = 100.
+
+```{r}
+agrar_path <- file.path("data", "processed", "agrarforschung_prices_monthly.csv")
+
+if (file.exists(agrar_path)) {
+  agrar <- read_csv(agrar_path, show_col_types = FALSE) |>
+    mutate(datum = as.Date(datum))
+
+  energy_context <- agrar |>
+    filter(attr_code %in% c("at_blochholz_fita_klbmed2b_monat", "Pellets", "at_brennholz_h_monat", "at_brennholz_w_monat", "EK_Diesel_brutto")) |>
+    summarise(preis = mean(preis, na.rm = TRUE), .by = c(jahr, sortiment, einheit, titel)) |>
+    group_by(sortiment, einheit) |>
+    arrange(jahr) |>
+    mutate(wert = preis / first(preis) * 100) |>
+    ungroup() |>
+    transmute(jahr, reihe = str_c(sortiment, " (", einheit, ")"), wert, quelle = titel) |>
+    filter(!is.na(wert))
+
+  energy_plot <- ggplot(energy_context, aes(
+    x = jahr, y = wert, color = reihe, group = reihe,
+    text = str_c("Reihe: ", reihe, "<br>Jahr: ", jahr, "<br>Index: ", round(wert, 2), "<br>Quelle: ", quelle)
+  )) +
+    geom_line() + geom_point(size = 1) +
+    labs(x = "Jahr", y = "Index, 2010 = 100", color = "Reihe", title = "Holzpreise, Pellets und Diesel im Vergleich") +
+    theme_minimal() + theme(legend.position = "bottom")
+
+  ggplotly(energy_plot, tooltip = "text")
+} else {
+  energy_context <- tibble()
+  tibble(Hinweis = "Daten fehlen. Starte: Rscript scripts/process_agrarforschung_prices.R") |> dt_table()
+}
+```
+
+### Beispiel aus dem Alltag
+
+```{r}
+#| results: asis
+if (exists("energy_context") && nrow(energy_context) > 0) {
+  latest_year <- max(energy_context$jahr)
+  media2b <- energy_context |> filter(jahr == latest_year, str_detect(reihe, "Media 2b")) |> pull(wert) |> first()
+  diesel <- energy_context |> filter(jahr == latest_year, str_detect(reihe, "Diesel")) |> pull(wert) |> first()
+  pellets <- energy_context |> filter(jahr == latest_year, str_detect(reihe, "Pellets")) |> pull(wert) |> first()
+
+  cat(str_c(
+    "Wenn 2010 überall **100** war, dann steht im letzten Jahr Blochholz Fichte/Tanne Media 2b bei **", round(media2b, 0),
+    "**, Diesel bei **", round(diesel, 0), "** und Pellets bei **", round(pellets, 0), "**. ",
+    "Für Laien heißt das: Man sieht schnell, ob Holzpreise stärker oder schwächer gestiegen sind als wichtige Energie- und Betriebskosten."
+  ))
+}
+```
+
+## Offizielle Energiepreis-Indizes
+
+Diese Grafik nutzt den [Statistik Austria VPI 2020 COICOP18](https://data.statistik.gv.at/data/OGD_vpi20c18_VPI_2020COICOP18_1.csv). Sie zeigt Haushaltsenergie und Brennholz/Pellets als offiziellen Preisindex. Unvollständige Jahre werden ausgeblendet.
+
+```{r}
+official_energy_path <- file.path("data", "processed", "energy_price_indices_annual.csv")
+if (file.exists(official_energy_path)) {
+  official_energy <- read_csv(official_energy_path, show_col_types = FALSE) |>
+    filter(vollstaendiges_jahr) |>
+    filter(reihe %in% c("Energie gesamt", "Brennholz inkl. Pellets und Briketts", "Strom", "Gas", "Flüssige Brennstoffe")) |>
+    arrange(reihe, jahr) |>
+    group_by(reihe) |>
+    mutate(index_2021 = index / first(index) * 100) |>
+    ungroup()
+
+  official_plot <- ggplot(official_energy, aes(
+    x = jahr,
+    y = index_2021,
+    color = reihe,
+    group = reihe,
+    text = str_c(
+      "Reihe: ", reihe,
+      "<br>Jahr: ", jahr,
+      "<br>Index: ", round(index_2021, 2),
+      "<br>Quelle: ", quelle
+    )
+  )) +
+    geom_line() +
+    geom_point(size = 1) +
+    labs(
+      x = "Jahr",
+      y = "Index, 2021 = 100",
+      color = "Reihe",
+      title = "Offizielle Energiepreis-Indizes"
+    ) +
+    theme_minimal() +
+    theme(legend.position = "bottom")
+
+  ggplotly(official_plot, tooltip = "text")
+} else {
+  official_energy <- tibble()
+  tibble(Hinweis = "Daten fehlen. Starte: Rscript scripts/process_context_indices.R") |> dt_table()
+}
+```
+
+### Beispiel aus dem Alltag
+
+```{r}
+#| results: asis
+if (exists("official_energy") && nrow(official_energy) > 0) {
+  latest_year <- max(official_energy$jahr)
+  latest <- official_energy |> filter(jahr == latest_year)
+  energie <- latest |> filter(reihe == "Energie gesamt") |> pull(index_2021) |> first()
+  brennholz <- latest |> filter(reihe == "Brennholz inkl. Pellets und Briketts") |> pull(index_2021) |> first()
+
+  cat(str_c(
+    "In den offiziellen Verbraucherpreis-Daten bedeutet **2021 = 100**. Im Jahr **", latest_year,
+    "** liegt Energie gesamt bei **", round(energie, 0), "** und Brennholz inkl. Pellets und Briketts bei **", round(brennholz, 0), "**. ",
+    "Ein Haushalt merkt das als allgemeines Energiepreisniveau, nicht als konkreten Holzverkaufspreis am Waldweg."
+  ))
+}
+```
+
+## Einfache Interpretation
+
+```{r}
+#| results: asis
+if (nrow(energy_context) > 0) {
+  latest_year <- max(energy_context$jahr)
+  timber_latest <- energy_context |> filter(jahr == latest_year, str_detect(reihe, "Media 2b")) |> pull(wert) |> first()
+  diesel_latest <- energy_context |> filter(jahr == latest_year, str_detect(reihe, "Diesel")) |> pull(wert) |> first()
+  pellets_latest <- energy_context |> filter(jahr == latest_year, str_detect(reihe, "Pellets")) |> pull(wert) |> first()
+
+  cat(str_c(
+    "Die Einordnung reicht bis **", latest_year, "**. ",
+    "Seit 2010 liegt Blochholz Fichte/Tanne Media 2b österreichweit bei Index ", round(timber_latest, 0), ", Diesel bei ", round(diesel_latest, 0),
+    " und Pellets bei ", round(pellets_latest, 0), ". ",
+    "Einfach gesagt: Holzpreise, Energiepreise und Betriebsmittel bewegen sich nicht gleich stark."
+  ))
+}
+```
+
+## Was man daraus nicht schließen sollte
+
+- Energiepreise erklären Holzpreise nicht vollständig.
+- Agrarforschung-Daten sind aggregierte Marktpreisreihen, keine Einzelverkäufe.
+- Grafiken helfen beim Einordnen, ersetzen aber keine Marktberatung.
+
+<details>
+<summary>Datenstand</summary>
+
+```{r}
+if (exists("energy_context") && nrow(energy_context) > 0) {
+  energy_context |>
+    summarise(von = min(jahr), bis = max(jahr), reihen = n_distinct(reihe), quelle = "preise.agrarforschung.at") |>
+    dt_table()
+} else {
+  tibble() |> dt_table()
+}
+```
+
+```{r}
+if (exists("official_energy") && nrow(official_energy) > 0) {
+  official_energy |>
+    summarise(von = min(jahr), bis = max(jahr), reihen = n_distinct(reihe), quelle = "Statistik Austria VPI 2020 COICOP18") |>
+    dt_table()
+} else {
+  tibble() |> dt_table()
+}
+```
+
+</details>

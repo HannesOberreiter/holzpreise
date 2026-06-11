@@ -54,32 +54,39 @@ jobs:
           BASE_URL="https://storage.bunnycdn.com/${STORAGE_ZONE_NAME}/"
 
           echo "Deleting existing files..."
-          curl -s -w "\nHTTP_CODE:%{http_code}" -H "AccessKey: ${STORAGE_PASSWORD}" ${BASE_URL} > /tmp/response.txt 2>&1
+          curl -s -w "\nHTTP_CODE:%{http_code}" -H "AccessKey: ${STORAGE_PASSWORD}" "${BASE_URL}" > /tmp/response.txt
 
           http_code=$(grep "HTTP_CODE:" /tmp/response.txt | cut -d: -f2)
           if [ "$http_code" != "200" ]; then
             echo "ERROR: Failed to list files (HTTP $http_code)"
+            cat /tmp/response.txt
             exit 1
           fi
 
-          # Delete existing files/directories
-          grep -o '"ObjectName":"[^"]*"' /tmp/response.txt | cut -d'"' -f4 > /tmp/objects.txt || true
+          sed '/HTTP_CODE:/d' /tmp/response.txt > /tmp/objects.json
+          python3 - <<'PY' > /tmp/objects.tsv
+          import json
+          with open('/tmp/objects.json') as f:
+              objects = json.load(f)
+          for obj in objects:
+              name = obj.get('ObjectName')
+              if name:
+                  print(f"{name}\t{str(obj.get('IsDirectory', False)).lower()}")
+          PY
 
-          if [ -s /tmp/objects.txt ]; then
-            while IFS= read -r name; do
-              # Add trailing slash for directories
-              if grep -q "\"ObjectName\":\"$name\".*\"IsDirectory\":true" /tmp/response.txt; then
+          if [ -s /tmp/objects.tsv ]; then
+            while IFS=$'\t' read -r name is_directory; do
+              suffix=""
+              if [ "$is_directory" = "true" ]; then
                 suffix="/"
-              else
-                suffix=""
               fi
               echo "Deleting: ${name}${suffix}"
-              curl -X DELETE -H "AccessKey: ${STORAGE_PASSWORD}" "${BASE_URL}${name}${suffix}" -s
-            done < /tmp/objects.txt
+              curl -X DELETE -H "AccessKey: ${STORAGE_PASSWORD}" "${BASE_URL}${name}${suffix}" -s --fail || true
+            done < /tmp/objects.tsv
           fi
 
           echo "Uploading new files..."
-          cd dist
+          cd _site
           find . -type f > /tmp/files.txt
 
           while IFS= read -r file; do

@@ -1,0 +1,244 @@
+```{r}
+#| include: false
+library(tidyverse)
+library(DT)
+library(plotly)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+dt_table <- function(data, page_length = 10, escape = TRUE) {
+  german_language <- list(
+    search = "Suchen:",
+    lengthMenu = "_MENU_ Einträge anzeigen",
+    info = "Zeige _START_ bis _END_ von _TOTAL_ Einträgen",
+    infoEmpty = "Keine Einträge",
+    infoFiltered = "(gefiltert aus _MAX_ Einträgen)",
+    zeroRecords = "Keine passenden Einträge gefunden",
+    paginate = list(
+      first = "Erste",
+      previous = "Zurück",
+      `next` = "Weiter",
+      last = "Letzte"
+    )
+  )
+
+  data |>
+    as_tibble() |>
+    mutate(across(where(is.double), ~ round(.x, 2))) |>
+    rename_with(~ .x |> str_replace_all("_", " ") |> str_to_sentence()) |>
+    datatable(
+      rownames = FALSE,
+      filter = "top",
+      escape = escape,
+      options = list(pageLength = page_length, scrollX = TRUE, language = german_language)
+    )
+}
+
+preise_path <- file.path("data", "processed", "agrarforschung_prices_monthly.csv")
+prices <- if (file.exists(preise_path)) read_csv(preise_path, show_col_types = FALSE) else tibble()
+prices <- prices |> mutate(datum = as.Date(datum))
+bl <- params$bundesland
+
+category_label <- function(gruppe) {
+  case_when(
+    str_detect(gruppe, "Säge") ~ "Sägerundholz",
+    str_detect(gruppe, "Industrie") ~ "Industrierundholz",
+    str_detect(gruppe, "Brennholz") | str_detect(gruppe, "Energieholz") ~ "Brenn- und Energieholz",
+    TRUE ~ gruppe
+  )
+}
+```
+
+## Marktpreise `r bl`
+
+Diese Seite zeigt Bundesland-Reihen von preise.agrarforschung.at. Preisbereiche (`von`/`bis`) sind veröffentlichte Spannweiten; der Mittelwert ist nur Orientierung.
+
+Die Bundesland-/LK-Reihen verwenden meist `EUR/FM`. Österreichweite Statistik-Austria-Reihen verwenden teils `EURO/M3`. Die Einheiten bleiben wie in der Quelle angegeben. Mehr dazu im [Glossar](glossar.qmd).
+
+```{r}
+bl_prices <- prices |>
+  filter(region == bl, gruppe %in% c(
+    "Sägerundholz Bundesländer",
+    "Industrierundholz Bundesländer",
+    "Brennholz und Energieholz Bundesländer"
+  )) |>
+  mutate(
+    kategorie = category_label(gruppe),
+    wert_typ = case_when(
+      str_ends(attr_code, "_von") ~ "preis_von",
+      str_ends(attr_code, "_bis") ~ "preis_bis",
+      TRUE ~ "preis_mittel"
+    ),
+    sortiment = str_remove(sortiment, " (von|bis)$"),
+    reihe = str_c(kategorie, ": ", sortiment, " (", einheit, ")")
+  ) |>
+  filter(!is.na(preis), preis > 0)
+
+if (nrow(bl_prices) == 0) {
+  tibble(Hinweis = str_c("Keine Daten für ", bl, " gefunden.")) |> dt_table()
+}
+```
+
+```{r}
+#| results: asis
+if (nrow(bl_prices) > 0) {
+  short_summary <- bl_prices |>
+    filter(wert_typ == "preis_mittel") |>
+    filter(
+      (kategorie == "Sägerundholz" & str_detect(sortiment, "Fichte/Tanne") & str_detect(sortiment, "Media 2b")) |
+        (kategorie == "Industrierundholz" & str_detect(sortiment, "Faserholz")) |
+        (kategorie == "Brenn- und Energieholz" & str_detect(sortiment, "Brennholz") & str_detect(sortiment, "hart"))
+    ) |>
+    group_by(kategorie, sortiment, einheit) |>
+    arrange(datum) |>
+    mutate(preis_vorjahr = preis[which.min(abs(datum - (max(datum) %m-% months(12))))]) |>
+    filter(datum == max(datum)) |>
+    ungroup() |>
+    mutate(aenderung = (preis / preis_vorjahr - 1) * 100)
+
+  if (nrow(short_summary) > 0) {
+    text <- short_summary |>
+      mutate(satz = str_c(
+        "**", kategorie, " – ", sortiment, "**: **", round(preis, 2), " ", einheit, "**",
+        if_else(!is.na(aenderung), str_c(" (", if_else(aenderung >= 0, "+", ""), round(aenderung, 1), " % gegenüber etwa vor einem Jahr)"), "")
+      )) |>
+      pull(satz) |>
+      str_c(collapse = "; ")
+
+    cat(str_c("**Kurzfassung für ", bl, ":** ", text, "."))
+  }
+}
+```
+
+## Entwicklung nach Sortiment
+
+Die Entwicklung ist nach Hauptkategorien getrennt, damit die Grafiken lesbar bleiben.
+
+```{r}
+#| include: false
+plot_category <- function(data, category_name) {
+  plot_data <- data |>
+    filter(kategorie == category_name) |>
+    select(datum, kategorie, sortiment, einheit, reihe, attr_code_merge, wert_typ, preis) |>
+    distinct() |>
+    pivot_wider(names_from = wert_typ, values_from = preis) |>
+    mutate(preis_mittel = coalesce(preis_mittel, (preis_von + preis_bis) / 2)) |>
+    filter(!is.na(preis_mittel))
+
+  if (nrow(plot_data) == 0) {
+    return(tibble(Hinweis = str_c("Keine Daten für ", category_name, " verfügbar.")) |> dt_table())
+  }
+
+  p <- ggplot(plot_data, aes(
+    x = datum,
+    y = preis_mittel,
+    color = reihe,
+    group = reihe,
+    text = str_c(
+      "Kategorie: ", kategorie,
+      "<br>Sortiment: ", sortiment,
+      "<br>Datum: ", datum,
+      "<br>Mittel: ", round(preis_mittel, 2), " ", einheit,
+      "<br>Von: ", round(preis_von, 2),
+      "<br>Bis: ", round(preis_bis, 2)
+    )
+  )) +
+    geom_ribbon(
+      aes(ymin = preis_von, ymax = preis_bis, fill = reihe),
+      alpha = 0.16,
+      color = NA,
+      show.legend = FALSE
+    ) +
+    geom_line() +
+    labs(
+      x = "Zeit",
+      y = "Preis",
+      color = "Reihe",
+      title = str_c(category_name, " in ", bl)
+    ) +
+    theme_minimal() +
+    theme(legend.position = "bottom")
+
+  ggplotly(p, tooltip = "text")
+}
+```
+
+### Sägerundholz / Blochholz
+
+```{r}
+if (nrow(bl_prices) > 0) {
+  plot_category(bl_prices, "Sägerundholz")
+}
+```
+
+### Industrierundholz / Faserholz und Schleifholz
+
+```{r}
+if (nrow(bl_prices) > 0) {
+  plot_category(bl_prices, "Industrierundholz")
+}
+```
+
+### Brenn- und Energieholz
+
+```{r}
+if (nrow(bl_prices) > 0) {
+  plot_category(bl_prices, "Brenn- und Energieholz")
+}
+```
+
+## Letzte verfügbare Preise
+
+```{r}
+if (nrow(bl_prices) > 0) {
+  latest <- bl_prices |>
+    group_by(kategorie, attr_code_merge, wert_typ) |>
+    filter(datum == max(datum, na.rm = TRUE)) |>
+    summarise(
+      datum = max(datum),
+      sortiment = first(sortiment),
+      einheit = first(einheit),
+      preis = first(preis),
+      .groups = "drop"
+    ) |>
+    pivot_wider(names_from = wert_typ, values_from = preis) |>
+    mutate(preis_mittel = coalesce(preis_mittel, (preis_von + preis_bis) / 2)) |>
+    select(datum, kategorie, sortiment, einheit, preis_von, preis_bis, preis_mittel) |>
+    arrange(kategorie, sortiment)
+
+  latest |> dt_table(25)
+}
+```
+
+<details>
+<summary>Alle Werte</summary>
+
+```{r}
+if (nrow(bl_prices) > 0) {
+  bl_prices |>
+    select(datum, kategorie, sortiment, wert_typ, preis, einheit) |>
+    arrange(desc(datum), kategorie, sortiment, wert_typ) |>
+    dt_table(25)
+}
+```
+
+</details>
+
+<details>
+<summary>Datenstand</summary>
+
+```{r}
+if (nrow(bl_prices) > 0) {
+  bl_prices |>
+    summarise(
+      von = min(datum),
+      bis = max(datum),
+      zeilen = n(),
+      sortimente = n_distinct(sortiment),
+      .by = c(kategorie, titel)
+    ) |>
+    select(kategorie, titel, von, bis, zeilen, sortimente) |>
+    dt_table(25)
+}
+```
+
+</details>

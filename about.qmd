@@ -19,12 +19,6 @@ Diese Website analysiert Holzpreise aus zwei Quellensträngen:
 - [preise.agrarforschung.at: Holzprodukte und Schnittholz](https://preise.agrarforschung.at/content/exportpreise-fuer-holz-produkte)
 - [Statistik Austria Open Data: Verbraucherpreisindex Basis 1976](https://data.statistik.gv.at/data/OGD_vpi76_VPI_1976_1.csv)
 
-## Open Source
-
-Der Code ist offen auf GitHub verfügbar: <https://github.com/HannesOberreiter/holzpreise>. Datenquellen, Verarbeitung und Website können nachvollzogen und reproduziert werden.
-
-Version: `r if (file.exists("version.txt")) readLines("version.txt", warn = FALSE)[1] else "Dev"`
-
 ## Impressum
 
 Medieninhaber und für den Inhalt verantwortlich:
@@ -45,3 +39,31 @@ Die Website wird statisch ausgeliefert. Beim Aufruf können technisch notwendige
 Hosting und Auslieferung erfolgen über Bunny.net. Dabei können Zugriffsdaten durch den Hosting-/CDN-Anbieter verarbeitet werden. Weitere Informationen: [bunny.net Privacy & Data Policy](https://bunny.net/privacy/).
 
 Auf einzelnen Seiten können externe Links zu Datenquellen oder weiterführenden Informationen gesetzt sein. Beim Anklicken gelten die Datenschutzbestimmungen der jeweiligen externen Anbieter.
+
+## Open Source
+
+Der Code ist offen auf GitHub verfügbar: <https://github.com/HannesOberreiter/holzpreise>. Datenquellen, Verarbeitung und Website können nachvollzogen und reproduziert werden.
+
+```{r}
+#| echo: false
+#| results: asis
+escape_html <- function(x) {
+  x <- gsub("&", "&amp;", x, fixed = TRUE)
+  x <- gsub("<", "&lt;", x, fixed = TRUE)
+  x <- gsub(">", "&gt;", x, fixed = TRUE)
+  x
+}
+
+changelog <- if (file.exists("CHANGELOG.md")) {
+  paste(readLines("CHANGELOG.md", warn = FALSE), collapse = "\n")
+} else {
+  "Noch kein Changelog vorhanden."
+}
+
+cat('<details>\n')
+cat('<summary>Versionshinweise / Changelog</summary>\n')
+cat('<pre><code>')
+cat(escape_html(changelog))
+cat('</code></pre>\n')
+cat('</details>\n')
+```

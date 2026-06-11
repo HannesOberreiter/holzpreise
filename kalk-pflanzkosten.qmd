@@ -1,0 +1,195 @@
+---
+title: "Pflanzkostenrechner"
+---
+
+## Was rechnet der Pflanzkostenrechner?
+
+Dieser Rechner hat zwei getrennte Teile:
+
+1. **Einfache Preisberechnung**: Baumart oder Produkt, Menge und Stückpreis eingeben. Daraus entstehen Zwischensummen und Material-Gesamtsumme.
+2. **Arbeitszeit-Schätzung**: aus allen Positionen mit Typ `Pflanze` werden zusätzliche Pflanzkosten für Winkelpflanzung oder Lochpflanzung geschätzt.
+
+Typische Positionen sind Pflanzen, Baumschutzhüllen, Pflöcke oder anderes Zubehör.
+
+```{=html}
+<div class="calculator-card plant-cost-calculator">
+  <div class="plant-toolbar">
+    <button type="button" id="cost-add-row">Position hinzufügen</button>
+  </div>
+
+  <div id="cost-rows" class="plant-rows"></div>
+
+  <div class="calculator-result" id="cost-result"></div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const rowsNode = document.getElementById("cost-rows");
+  const resultNode = document.getElementById("cost-result");
+  const addButton = document.getElementById("cost-add-row");
+
+  const defaultRows = [
+    { product: "Eiche 80/120", type: "plant", amount: 290, unitPrice: 1.70 },
+    { product: "Bergahorn 120/150", type: "plant", amount: 50, unitPrice: 2.22 },
+    { product: "Baumschutzhülle", type: "accessory", amount: 50, unitPrice: 1.05 },
+    { product: "Pflöcke", type: "accessory", amount: 100, unitPrice: 9.90 }
+  ];
+
+  const laborAssumptions = {
+    hourlyCost: 26.65,
+    anglePlantsPerHour: 45,
+    holePlantsPerHour: 25
+  };
+
+  const formatEuro = (value) => new Intl.NumberFormat("de-AT", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(value);
+
+  const formatNumber = (value) => new Intl.NumberFormat("de-AT", {
+    maximumFractionDigits: 0
+  }).format(value);
+
+  const formatDecimal = (value) => new Intl.NumberFormat("de-AT", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  }).format(value);
+
+  const createRow = (row) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "plant-row plant-cost-row";
+    wrapper.innerHTML = `
+      <label>Baumart / Produkt<input class="cost-product" type="text" value="${row.product}"></label>
+      <label>Typ<select class="cost-type">
+        <option value="plant"${row.type === "plant" ? " selected" : ""}>Pflanze</option>
+        <option value="accessory"${row.type === "accessory" ? " selected" : ""}>Zubehör</option>
+      </select></label>
+      <label>Menge / Stück<input class="cost-amount" type="number" min="0" step="1" value="${row.amount}"></label>
+      <label>Preis pro Stück (€)<input class="cost-unit-price" type="number" min="0" step="0.01" value="${row.unitPrice}"></label>
+      <button type="button" class="plant-remove">Entfernen</button>
+    `;
+    rowsNode.appendChild(wrapper);
+    wrapper.querySelectorAll("input, select").forEach((input) => input.addEventListener("input", updateResult));
+    wrapper.querySelector(".plant-remove").addEventListener("click", () => {
+      wrapper.remove();
+      updateResult();
+    });
+  };
+
+  const readRows = () => [...rowsNode.querySelectorAll(".plant-cost-row")].map((row) => ({
+    product: row.querySelector(".cost-product").value || "Position",
+    type: row.querySelector(".cost-type").value,
+    amount: Number(row.querySelector(".cost-amount").value || 0),
+    unitPrice: Number(row.querySelector(".cost-unit-price").value || 0)
+  }));
+
+  const updateResult = () => {
+    const rows = readRows();
+    const cards = rows.map((row) => {
+      const sum = row.amount * row.unitPrice;
+      return `
+        <div>
+          <strong>${formatEuro(sum)}</strong>
+          <span>${row.product}</span>
+          <p>${formatNumber(row.amount)} Stück × ${formatEuro(row.unitPrice)}</p>
+        </div>
+      `;
+    }).join("");
+
+    const materialTotal = rows.reduce((sum, row) => sum + row.amount * row.unitPrice, 0);
+    const plantCount = rows
+      .filter((row) => row.type === "plant")
+      .reduce((sum, row) => sum + row.amount, 0);
+    const angleLaborHours = plantCount / laborAssumptions.anglePlantsPerHour;
+    const holeLaborHours = plantCount / laborAssumptions.holePlantsPerHour;
+    const angleLaborCost = angleLaborHours * laborAssumptions.hourlyCost;
+    const holeLaborCost = holeLaborHours * laborAssumptions.hourlyCost;
+
+    resultNode.innerHTML = `
+      <div class="calculator-section-title">Einfache Preisberechnung</div>
+      <div>
+        <strong>${formatEuro(materialTotal)}</strong>
+        <span>Material gesamt</span>
+        <p>${rows.length} Positionen · ohne Arbeitszeit</p>
+      </div>
+      ${cards}
+
+      <div class="calculator-section-title">Arbeitszeit-Schätzung</div>
+      <div>
+        <strong>${formatNumber(plantCount)}</strong>
+        <span>Pflanzen für Arbeitszeit</span>
+        <p>Nur Positionen mit Typ „Pflanze“</p>
+      </div>
+      <div>
+        <strong>${formatEuro(angleLaborCost)}</strong>
+        <span>Winkelpflanzung Kosten</span>
+        <p>${formatNumber(Math.ceil(angleLaborHours))} Stunden grob · 45 Pflanzen/Stunde · ${formatEuro(laborAssumptions.hourlyCost)}/Stunde</p>
+      </div>
+      <div>
+        <strong>${formatEuro(holeLaborCost)}</strong>
+        <span>Lochpflanzung Kosten</span>
+        <p>${formatNumber(Math.ceil(holeLaborHours))} Stunden grob · 25 Pflanzen/Stunde · ${formatEuro(laborAssumptions.hourlyCost)}/Stunde</p>
+      </div>
+      <div>
+        <strong>${formatNumber(Math.ceil(angleLaborHours))} h</strong>
+        <span>Arbeitszeit Winkelpflanzung</span>
+        <p>exakt ca. ${formatDecimal(angleLaborHours)} Stunden</p>
+      </div>
+      <div>
+        <strong>${formatNumber(Math.ceil(holeLaborHours))} h</strong>
+        <span>Arbeitszeit Lochpflanzung</span>
+        <p>exakt ca. ${formatDecimal(holeLaborHours)} Stunden</p>
+      </div>
+
+      <div class="calculator-section-title">Gesamtsumme mit Arbeitszeit</div>
+      <div>
+        <strong>${formatEuro(materialTotal + angleLaborCost)}</strong>
+        <span>Material + Winkelpflanzung</span>
+        <p>Material gesamt + geschätzte Arbeitszeit</p>
+      </div>
+      <div>
+        <strong>${formatEuro(materialTotal + holeLaborCost)}</strong>
+        <span>Material + Lochpflanzung</span>
+        <p>Material gesamt + geschätzte Arbeitszeit</p>
+      </div>
+    `;
+  };
+
+  addButton.addEventListener("click", () => {
+    createRow({ product: "Position", type: "plant", amount: 0, unitPrice: 0 });
+    updateResult();
+  });
+
+  defaultRows.forEach(createRow);
+  updateResult();
+});
+</script>
+```
+
+## Annahmen für Arbeitszeit
+
+Die Arbeitszeit-Schätzung nutzt Faustformeln aus dem Jahr 2020. Quelle: [klimafitterwald.at: Mit welchen Kosten muss ich bei der Aufforstung rechnen?](https://www.klimafitterwald.at/fragen-und-antworten/mit-welchen-kosten-muss-ich-bei-der-aufforstung-rechnen/)
+
+Verwendete Werte:
+
+- Winkelpflanzung: **45 Pflanzen/Stunde** = ca. **1,33 min/Pflanze**
+- Lochpflanzung: **25 Pflanzen/Stunde** = ca. **2,40 min/Pflanze**
+- Lohn Forstfacharbeiter: **13,00 €/Stunde**
+- Lohnnebenkosten: **100 %**
+- Werkzeugkosten: **5 %**
+- Ergebnis: **26,65 €/Stunde**
+
+Beispiel aus der Quelle:
+
+- 2.000 Stück/ha Fichte × 0,70 €/Stück = **1.400 €/ha Pflanzenkosten**
+- Winkelpflanzung: ca. **0,59 €/Pflanze** = **1.184,40 €/ha**
+- Lochpflanzung: ca. **1,07 €/Pflanze** = **2.140,00 €/ha**
+
+## Hinweise
+
+- Preise sind frei editierbar.
+- Arbeitszeit zählt nur Positionen mit Typ `Pflanze`.
+- Versand, Rabatte, Mehrwertsteuer, Förderung, Kulturvorbereitung, Wildschutz, Zaun, Nachbesserung und Anfahrt sind nicht automatisch enthalten.
+- Für Stückzahl und Pflanzverband nutze zusätzlich den [Pflanzrechner](kalk-pflanzrechner.qmd).

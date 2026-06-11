@@ -1,0 +1,180 @@
+---
+title: "Pflanzrechner"
+---
+
+## Was rechnet der Pflanzrechner?
+
+Der Rechner schätzt, wie viele Pflanzen für eine Fläche benötigt werden. Du gibst die Fläche in Hektar ein und kannst mehrere Baumarten hinzufügen. Für jede Baumart gibst du Stückzahlanteil, Reihenabstand und Zeilenabstand in Metern ein.
+
+Der Rechner interpretiert `Anteil %` als **Stückzahlanteil**. Das ist für Pflanzpläne oft verständlicher: z. B. 54 % Rotbuche, 36 % Winterlinde, 10 % Berg-Ahorn.
+
+Vereinfacht rechnet er:
+
+```text
+mittlere Fläche pro Pflanze = Summe(Anteil × Reihenabstand × Zeilenabstand)
+Pflanzen gesamt = Fläche in m² / mittlere Fläche pro Pflanze
+Pflanzen je Baumart = Pflanzen gesamt × Anteil
+```
+
+Wichtig: Das ist eine **Planungsorientierung**. Ausfälle, Wege, Rückegassen, Randabstände, Naturverjüngung, Mischung in Gruppen statt Einzelmischung und forstliche Beratung sind nicht berücksichtigt.
+
+```{=html}
+<div class="calculator-card plant-calculator">
+  <label for="plant-area">Fläche in Hektar</label>
+  <input id="plant-area" type="number" min="0" step="0.01" value="1">
+
+  <div class="plant-toolbar">
+    <button type="button" id="plant-add-row">Baumart hinzufügen</button>
+  </div>
+
+  <div id="plant-rows" class="plant-rows"></div>
+
+  <div class="calculator-result" id="plant-result"></div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const areaInput = document.getElementById("plant-area");
+  const rowsNode = document.getElementById("plant-rows");
+  const resultNode = document.getElementById("plant-result");
+  const addButton = document.getElementById("plant-add-row");
+
+  const defaultRows = [
+    { species: "Eiche", percent: 54, rowSpacing: 2, lineSpacing: 1 },
+    { species: "Winterlinde", percent: 36, rowSpacing: 2, lineSpacing: 2 },
+    { species: "Berg-Ahorn", percent: 10, rowSpacing: 2, lineSpacing: 2 }
+  ];
+
+  const formatNumber = (value) => new Intl.NumberFormat("de-AT", {
+    maximumFractionDigits: 0
+  }).format(value);
+
+  const formatDecimal = (value) => new Intl.NumberFormat("de-AT", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(value);
+
+  const formatEuro = (value) => new Intl.NumberFormat("de-AT", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0
+  }).format(value);
+
+  const assumptions = {
+    plantCost: 0.70,
+    wagePerHour: 26.65,
+    anglePlantsPerHour: 45,
+    holePlantsPerHour: 25
+  };
+
+  const createRow = (row) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "plant-row";
+    wrapper.innerHTML = `
+      <label>Baumart<input class="plant-species" type="text" value="${row.species}"></label>
+      <label>Anteil %<input class="plant-percent" type="number" min="0" max="100" step="1" value="${row.percent}"></label>
+      <label>Abstand Reihe (m)<input class="plant-row-spacing" type="number" min="0.1" step="0.1" value="${row.rowSpacing}"></label>
+      <label>Abstand Zeile (m)<input class="plant-line-spacing" type="number" min="0.1" step="0.1" value="${row.lineSpacing}"></label>
+      <button type="button" class="plant-remove">Entfernen</button>
+    `;
+    rowsNode.appendChild(wrapper);
+    wrapper.querySelectorAll("input").forEach((input) => input.addEventListener("input", updateResult));
+    wrapper.querySelector(".plant-remove").addEventListener("click", () => {
+      wrapper.remove();
+      updateResult();
+    });
+  };
+
+  const readRows = () => [...rowsNode.querySelectorAll(".plant-row")].map((row) => ({
+    species: row.querySelector(".plant-species").value || "Baumart",
+    percent: Number(row.querySelector(".plant-percent").value || 0),
+    rowSpacing: Number(row.querySelector(".plant-row-spacing").value || 0),
+    lineSpacing: Number(row.querySelector(".plant-line-spacing").value || 0)
+  }));
+
+  const updateResult = () => {
+    const hectare = Number(areaInput.value || 0);
+    const squareMeters = hectare * 10000;
+    const rows = readRows();
+    const percentSum = rows.reduce((sum, row) => sum + row.percent, 0);
+
+    if (percentSum > 100.01) {
+      resultNode.innerHTML = `<p class="calculator-warning">Warnung: Die Anteile ergeben zusammen ${formatDecimal(percentSum)}% und liegen damit über 100%. Bitte Anteile korrigieren. Ergebnisse werden erst bei genau 100% angezeigt.</p>`;
+      return;
+    }
+
+    if (percentSum < 99.99) {
+      resultNode.innerHTML = `<p class="calculator-warning">Hinweis: Die Anteile ergeben zusammen nur ${formatDecimal(percentSum)}%. Bitte Anteile korrigieren. Ergebnisse werden erst bei genau 100% angezeigt.</p>`;
+      return;
+    }
+
+    const weightedSpacing = rows.reduce((sum, row) => {
+      const spacingArea = row.rowSpacing * row.lineSpacing;
+      return sum + (row.percent / 100) * spacingArea;
+    }, 0);
+
+    const totalPlantsRaw = weightedSpacing > 0 ? squareMeters / weightedSpacing : 0;
+    const totalPlants = Math.ceil(totalPlantsRaw);
+
+    const cards = rows.map((row) => {
+      const spacingArea = row.rowSpacing * row.lineSpacing;
+      const plants = Math.ceil(totalPlantsRaw * row.percent / 100);
+      const speciesArea = plants * spacingArea;
+      return `
+        <div>
+          <strong>${formatNumber(plants)}</strong>
+          <span>${row.species}</span>
+          <p>${row.percent}% der Stückzahl · ca. ${formatDecimal(speciesArea)} m² · ${formatDecimal(spacingArea)} m² pro Pflanze</p>
+        </div>
+      `;
+    }).join("");
+
+    resultNode.innerHTML = `
+      <div>
+        <strong>${formatNumber(totalPlants)}</strong>
+        <span>Pflanzen gesamt</span>
+        <p>${formatDecimal(squareMeters)} m² Fläche · ${formatDecimal(percentSum)}% verteilt</p>
+      </div>
+      ${cards}
+    `;
+  };
+
+  addButton.addEventListener("click", () => {
+    createRow({ species: "Baumart", percent: 0, rowSpacing: 2, lineSpacing: 2 });
+    updateResult();
+  });
+  areaInput.addEventListener("input", updateResult);
+
+  defaultRows.forEach(createRow);
+  updateResult();
+});
+</script>
+```
+
+## Beispiel
+
+Als Startwert ist ein einfaches Beispiel für **1 Hektar** eingetragen:
+
+- **Eiche**: 54 % Stückzahlanteil, 2 m × 1 m
+- **Winterlinde**: 36 % Stückzahlanteil, 2 m × 2 m
+- **Berg-Ahorn**: 10 % Stückzahlanteil, 2 m × 2 m
+
+1 Hektar ist als Einstieg leichter nachvollziehbar, weil das genau **10.000 m²** sind. Bei unterschiedlichen Pflanzabständen berechnet der Rechner zuerst eine gewichtete mittlere Fläche pro Pflanze. Deshalb können die Flächenanteile am Ende anders aussehen als die Stückzahlanteile.
+
+Für deinen konkreten Fall kannst du die Fläche auf **0,21 Hektar** ändern. Wenn du händisch auf ungefähr **330 Eichen**, **220 Winterlinden** und **60 Berg-Ahorne** kommst, ist das plausibel, wenn Wege, Rand zum Bestand, unbepflanzte Teilflächen oder gruppenweise Pflanzung mitgedacht sind. Der Rechner ist eine rechnerische Orientierung, kein Pflanzplan.
+
+## Kosten
+
+Materialkosten werden bewusst getrennt gerechnet. Nutze dafür den [Pflanzkostenrechner](kalk-pflanzkosten.qmd). Dort kannst du Pflanzen, Baumschutzhüllen, Pflöcke und weitere Positionen mit Menge und Stückpreis erfassen.
+
+Als Hintergrund zu Arbeitskosten und Aufforstungskosten siehe: [klimafitterwald.at: Mit welchen Kosten muss ich bei der Aufforstung rechnen?](https://www.klimafitterwald.at/fragen-und-antworten/mit-welchen-kosten-muss-ich-bei-der-aufforstung-rechnen/)
+
+## Weiterführende Informationen
+
+Für echte Aufforstungsentscheidungen ist nicht nur die Stückzahl wichtig, sondern auch die Herkunft des Saat- und Pflanzgutes. Die gewählte Herkunft wirkt über Jahrzehnte: ungeeignete Herkünfte können zu hohen Ausfällen, langsamem Wuchs oder schlechter Qualität führen.
+
+Hilfreiche Plattform:
+
+- [herkunftsberatung.at / BFW Herkunftsberatung](https://bfw.ac.at/hkd/herkauswahl.einstieg)
+
+Dort finden sich Informationen zu geeignetem Saat- und Pflanzgut, Herkunftswahl und weiterführenden Beratungsangeboten. Für konkrete Baumartenwahl, Pflanzverband und Förderungen sollten zusätzlich Landwirtschaftskammer oder Bezirksbehörde kontaktiert werden.

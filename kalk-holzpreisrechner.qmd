@@ -1,0 +1,225 @@
+---
+title: "Holzpreisrechner"
+---
+
+```{r}
+#| include: false
+library(tidyverse)
+library(jsonlite)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+prices_path <- file.path("data", "processed", "agrarforschung_prices_monthly.csv")
+calculator_data <- tibble()
+
+category_label <- function(gruppe) {
+  case_when(
+    str_detect(gruppe, "Säge") ~ "Sägerundholz",
+    str_detect(gruppe, "Industrie") ~ "Industrierundholz",
+    str_detect(gruppe, "Brennholz") | str_detect(gruppe, "Energieholz") ~ "Brenn- und Energieholz",
+    TRUE ~ gruppe
+  )
+}
+
+if (file.exists(prices_path)) {
+  prices <- read_csv(prices_path, show_col_types = FALSE) |>
+    mutate(datum = as.Date(datum))
+
+  austria_data <- prices |>
+    filter(content_id %in% c("saegeholz_monatl", "industrierundholz_monatl", "brennholz_monatl")) |>
+    filter(!is.na(preis), preis > 0) |>
+    mutate(
+      region = "Österreichweit",
+      kategorie = case_when(
+        content_id == "saegeholz_monatl" ~ "Sägerundholz",
+        content_id == "industrierundholz_monatl" ~ "Industrierundholz",
+        content_id == "brennholz_monatl" ~ "Brenn- und Energieholz",
+        TRUE ~ category_label(gruppe)
+      ),
+      attr_key = attr_code
+    ) |>
+    summarise(preis_mittel = mean(preis, na.rm = TRUE), .by = c(region, kategorie, sortiment, attr_key, einheit, jahr)) |>
+    mutate(preis_von = NA_real_, preis_bis = NA_real_)
+
+  bundesland_data <- prices |>
+    filter(gruppe %in% c(
+      "Sägerundholz Bundesländer",
+      "Industrierundholz Bundesländer",
+      "Brennholz und Energieholz Bundesländer"
+    )) |>
+    filter(!is.na(preis), preis > 0) |>
+    mutate(
+      kategorie = category_label(gruppe),
+      wert_typ = case_when(
+        str_ends(attr_code, "_von") ~ "preis_von",
+        str_ends(attr_code, "_bis") ~ "preis_bis",
+        TRUE ~ "preis_mittel"
+      ),
+      sortiment = str_remove(sortiment, " (von|bis)$"),
+      attr_key = attr_code_merge
+    ) |>
+    summarise(preis = mean(preis, na.rm = TRUE), .by = c(region, kategorie, sortiment, attr_key, einheit, jahr, wert_typ)) |>
+    pivot_wider(names_from = wert_typ, values_from = preis) |>
+    mutate(preis_mittel = coalesce(preis_mittel, (preis_von + preis_bis) / 2))
+
+  calculator_data <- bind_rows(austria_data, bundesland_data) |>
+    mutate(label = str_c(kategorie, " – ", sortiment, " (", einheit, ")")) |>
+    arrange(region, label, desc(jahr)) |>
+    select(region, label, kategorie, sortiment, einheit, jahr, preis_von, preis_bis, preis_mittel)
+}
+```
+
+## Was rechnet der Holzpreisrechner?
+
+Der Rechner liefert eine grobe Preisorientierung für eine gewählte Region, ein Sortiment, eine Menge und ein Jahr. Für Bundesländer werden – wenn verfügbar – `Preis von` und `Preis bis` angezeigt. Für Österreich gesamt gibt es meist nur einen Mittelpreis.
+
+Wichtig: Das ist **keine Abrechnung** und kein Angebot. Qualität, Preisband, Bringung, Transport, Sortierung, Abmaß, Verträge und Steuern sind nicht berücksichtigt.
+
+```{r}
+#| results: asis
+if (nrow(calculator_data) == 0) {
+  cat('<p>Daten fehlen. Starte: <code>Rscript scripts/process_agrarforschung_prices.R</code>.</p>')
+} else {
+  cat('<div class="calculator-card">')
+  cat('<label for="calc-region">Region</label>')
+  cat('<select id="calc-region"></select>')
+  cat('<label for="calc-sortiment">Sortiment</label>')
+  cat('<select id="calc-sortiment"></select>')
+  cat('<label for="calc-amount">Menge</label>')
+  cat('<input id="calc-amount" type="number" min="0" step="0.1" value="24">')
+  cat('<label for="calc-year">Jahr</label>')
+  cat('<select id="calc-year"></select>')
+  cat('<div class="calculator-result" id="calc-result"></div>')
+  cat('</div>')
+}
+```
+
+```{r}
+#| results: asis
+if (nrow(calculator_data) > 0) {
+  cat('<script type="application/json" id="calc-data">')
+  cat(toJSON(calculator_data, dataframe = "rows", auto_unbox = TRUE, digits = 10, na = "null"))
+  cat('</script>')
+}
+```
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const dataNode = document.getElementById("calc-data");
+  if (!dataNode) return;
+
+  const data = JSON.parse(dataNode.textContent);
+  const regionSelect = document.getElementById("calc-region");
+  const sortimentSelect = document.getElementById("calc-sortiment");
+  const yearSelect = document.getElementById("calc-year");
+  const amountInput = document.getElementById("calc-amount");
+  const result = document.getElementById("calc-result");
+
+  const formatEuro = (value) => new Intl.NumberFormat("de-AT", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0
+  }).format(value);
+
+  const formatPrice = (value) => new Intl.NumberFormat("de-AT", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(value);
+
+  const regionOrder = (region) => region === "Österreichweit" ? "" : region;
+  const regions = [...new Set(data.map((row) => row.region))]
+    .sort((a, b) => regionOrder(a).localeCompare(regionOrder(b), "de"));
+
+  regions.forEach((region) => {
+    const option = document.createElement("option");
+    option.value = region;
+    option.textContent = region;
+    regionSelect.appendChild(option);
+  });
+  regionSelect.value = "Österreichweit";
+
+  const updateSortiments = () => {
+    const selectedRegion = regionSelect.value;
+    const labels = [...new Set(data.filter((row) => row.region === selectedRegion).map((row) => row.label))]
+      .sort((a, b) => a.localeCompare(b, "de"));
+
+    const previous = sortimentSelect.value;
+    sortimentSelect.innerHTML = "";
+    labels.forEach((label) => {
+      const option = document.createElement("option");
+      option.value = label;
+      option.textContent = label;
+      sortimentSelect.appendChild(option);
+    });
+
+    if (labels.includes(previous)) {
+      sortimentSelect.value = previous;
+    }
+  };
+
+  const updateYears = () => {
+    const selectedRegion = regionSelect.value;
+    const selected = sortimentSelect.value;
+    const years = data
+      .filter((row) => row.region === selectedRegion && row.label === selected)
+      .map((row) => row.jahr)
+      .sort((a, b) => b - a);
+
+    const previous = yearSelect.value;
+    yearSelect.innerHTML = "";
+    years.forEach((year) => {
+      const option = document.createElement("option");
+      option.value = String(year);
+      option.textContent = String(year);
+      yearSelect.appendChild(option);
+    });
+
+    if (years.includes(Number(previous))) {
+      yearSelect.value = previous;
+    }
+  };
+
+  const updateResult = () => {
+    const selectedRegion = regionSelect.value;
+    const selected = sortimentSelect.value;
+    const year = Number(yearSelect.value);
+    const amount = Number(amountInput.value || 0);
+    const row = data.find((item) => item.region === selectedRegion && item.label === selected && item.jahr === year);
+    if (!row) return;
+
+    const hasRange = row.preis_von !== null && row.preis_bis !== null;
+    const totalMiddle = amount * row.preis_mittel;
+    const totalFrom = hasRange ? amount * row.preis_von : totalMiddle;
+    const totalTo = hasRange ? amount * row.preis_bis : totalMiddle;
+    const headline = hasRange ? `${formatEuro(totalFrom)}–${formatEuro(totalTo)}` : formatEuro(totalMiddle);
+    const priceLine = hasRange
+      ? `${formatPrice(row.preis_von)}–${formatPrice(row.preis_bis)} ${row.einheit}; Mittel ${formatPrice(row.preis_mittel)} ${row.einheit}`
+      : `${formatPrice(row.preis_mittel)} ${row.einheit}`;
+
+    result.innerHTML = `
+      <div><strong>${headline}</strong><span> grober Wert für ${amount.toLocaleString("de-AT")} Einheiten</span></div>
+      <div><strong>${formatEuro(totalMiddle)}</strong><span> mit Mittelwert gerechnet</span></div>
+      <p>${priceLine} · ${selectedRegion} · ${year}</p>
+    `;
+  };
+
+  regionSelect.addEventListener("change", () => {
+    updateSortiments();
+    updateYears();
+    updateResult();
+  });
+  sortimentSelect.addEventListener("change", () => {
+    updateYears();
+    updateResult();
+  });
+  yearSelect.addEventListener("change", updateResult);
+  amountInput.addEventListener("input", updateResult);
+
+  updateSortiments();
+  updateYears();
+  updateResult();
+});
+</script>
+
+## Wie liest man das Ergebnis?
+
+Bei Bundesland-Reihen ist die Spanne wichtiger als ein einzelner Punktwert: `von` und `bis` zeigen den veröffentlichten Preisbereich. Der Mittelwert ist nur eine rechnerische Orientierung.

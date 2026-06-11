@@ -1,0 +1,45 @@
+---
+title: "Über das Projekt"
+---
+
+## Ziel
+
+Diese Website analysiert Holzpreise aus zwei Quellensträngen:
+
+1. **Tiroler Walddatenbank** für lange Tirol-Zeitreihen mit nominaler und inflationsbereinigter Preisentwicklung.
+2. **preise.agrarforschung.at** für österreichweite Marktpreise zu Rundholz, Energieholz, Pellets, Holzprodukten und Schnittholz.
+
+## Externe Hauptquellen
+
+- [Tiroler Walddatenbank](https://wdb.tirol.gv.at/public/rupiQuartal.xhtml)
+- [Land Tirol: Holzpreise](https://www.tirol.gv.at/umwelt/wald/holzmarkt/holzpreise/)
+- [preise.agrarforschung.at: Inlandspreise für Holz](https://preise.agrarforschung.at/content/inlandspreise-fuer-holz)
+- [preise.agrarforschung.at: Energieholz](https://preise.agrarforschung.at/content/inlandspreise-fuer-energieholz)
+- [preise.agrarforschung.at: Pellets](https://preise.agrarforschung.at/content/inlandspreise-fuer-pellets)
+- [preise.agrarforschung.at: Holzprodukte und Schnittholz](https://preise.agrarforschung.at/content/exportpreise-fuer-holz-produkte)
+- [Statistik Austria Open Data: Verbraucherpreisindex Basis 1976](https://data.statistik.gv.at/data/OGD_vpi76_VPI_1976_1.csv)
+
+## Open Source
+
+Der Code ist offen auf GitHub verfügbar: <https://github.com/HannesOberreiter/holzpreise>. Datenquellen, Verarbeitung und Website können nachvollzogen und reproduziert werden.
+
+## Impressum
+
+Medieninhaber und für den Inhalt verantwortlich:
+
+Hannes Oberreiter  
+<https://www.oberreiter.or.at>
+
+Projekt-Repository: <https://github.com/HannesOberreiter/holzpreise>
+
+Diese Website ist ein nicht-kommerzielles Informations- und Open-Source-Projekt. Die dargestellten Preise dienen der Orientierung und sind keine Angebote, Empfehlungen oder Abrechnungsgrundlage.
+
+## Datenschutz
+
+Diese Website setzt keine Cookies und verwendet kein eigenes Tracking.
+
+Die Website wird statisch ausgeliefert. Beim Aufruf können technisch notwendige Zugriffsdaten verarbeitet werden, insbesondere IP-Adresse, Zeitpunkt des Zugriffs, aufgerufene Datei, Referrer, Browser/User-Agent und HTTP-Status. Diese Daten sind für Betrieb, Sicherheit und Fehleranalyse der Website erforderlich.
+
+Hosting und Auslieferung erfolgen über Bunny.net. Dabei können Zugriffsdaten durch den Hosting-/CDN-Anbieter verarbeitet werden. Weitere Informationen: [bunny.net Privacy & Data Policy](https://bunny.net/privacy/).
+
+Auf einzelnen Seiten können externe Links zu Datenquellen oder weiterführenden Informationen gesetzt sein. Beim Anklicken gelten die Datenschutzbestimmungen der jeweiligen externen Anbieter.

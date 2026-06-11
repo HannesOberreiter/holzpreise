@@ -1,0 +1,268 @@
+---
+title: "Aktuelle Holzpreise"
+---
+
+```{r}
+#| include: false
+library(tidyverse)
+library(DT)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+dt_table <- function(data, page_length = 10, escape = TRUE) {
+  german_language <- list(
+    search = "Suchen:",
+    lengthMenu = "_MENU_ Einträge anzeigen",
+    info = "Zeige _START_ bis _END_ von _TOTAL_ Einträgen",
+    infoEmpty = "Keine Einträge",
+    infoFiltered = "(gefiltert aus _MAX_ Einträgen)",
+    zeroRecords = "Keine passenden Einträge gefunden",
+    paginate = list(
+      first = "Erste",
+      previous = "Zurück",
+      `next` = "Weiter",
+      last = "Letzte"
+    )
+  )
+
+  data |>
+    as_tibble() |>
+    mutate(across(where(is.double), ~ round(.x, 2))) |>
+    rename_with(~ .x |> str_replace_all("_", " ") |> str_to_sentence()) |>
+    datatable(
+      rownames = FALSE,
+      filter = "top",
+      escape = escape,
+      options = list(pageLength = page_length, scrollX = TRUE, language = german_language)
+    )
+}
+```
+
+## Schneller Überblick
+
+Diese Karten zeigen aktuelle Holzpreise für Sägerundholz, Industrierundholz und – wo verfügbar – Brenn- und Energieholz. Für Bundesländer werden veröffentlichte Preisbereiche angezeigt. Für Österreich gesamt gibt es bundesweite Marktpreisreihen ohne Preisbereich. Die Werte sind keine Preisgarantie und ersetzen keine Beratung oder ein konkretes Angebot.
+
+```{r}
+#| results: asis
+escape_html <- function(x) {
+  x |>
+    as.character() |>
+    str_replace_all("&", "&amp;") |>
+    str_replace_all("<", "&lt;") |>
+    str_replace_all(">", "&gt;") |>
+    str_replace_all('"', "&quot;")
+}
+
+format_price <- function(x) {
+  if_else(is.na(x), "–", format(round(x, 2), nsmall = 2, decimal.mark = ",", trim = TRUE))
+}
+
+category_label <- function(gruppe) {
+  case_when(
+    str_detect(gruppe, "Säge") | gruppe == "Inlandspreise Holz" ~ "Sägerundholz",
+    str_detect(gruppe, "Industrie") ~ "Industrierundholz",
+    str_detect(gruppe, "Brennholz") | str_detect(gruppe, "Energieholz") ~ "Brenn- und Energieholz",
+    TRUE ~ gruppe
+  )
+}
+
+category_order <- c("Sägerundholz", "Industrierundholz", "Brenn- und Energieholz")
+
+prices_path <- file.path("data", "processed", "agrarforschung_prices_monthly.csv")
+if (file.exists(prices_path)) {
+  prices <- read_csv(prices_path, show_col_types = FALSE) |>
+    mutate(datum = as.Date(datum))
+
+  bundesland_cards <- prices |>
+    filter(gruppe %in% c(
+      "Sägerundholz Bundesländer",
+      "Industrierundholz Bundesländer",
+      "Brennholz und Energieholz Bundesländer"
+    )) |>
+    mutate(
+      kategorie = category_label(gruppe),
+      wert_typ = case_when(
+        str_ends(attr_code, "_von") ~ "preis_von",
+        str_ends(attr_code, "_bis") ~ "preis_bis",
+        TRUE ~ "preis_mittel"
+      ),
+      sortiment = str_remove(sortiment, " (von|bis)$")
+    ) |>
+    filter(!is.na(preis), preis > 0) |>
+    group_by(region, kategorie, attr_code_merge, wert_typ) |>
+    filter(datum == max(datum, na.rm = TRUE)) |>
+    summarise(
+      datum = max(datum),
+      sortiment = first(sortiment),
+      einheit = first(einheit),
+      preis = first(preis),
+      .groups = "drop"
+    ) |>
+    pivot_wider(names_from = wert_typ, values_from = preis) |>
+    mutate(preis_mittel = coalesce(preis_mittel, (preis_von + preis_bis) / 2)) |>
+    select(datum, region, kategorie, sortiment, einheit, preis_von, preis_bis, preis_mittel)
+
+  austria_cards <- prices |>
+    filter(content_id %in% c("saegeholz_monatl", "industrierundholz_monatl", "brennholz_monatl")) |>
+    mutate(
+      kategorie = case_when(
+        content_id == "saegeholz_monatl" ~ "Sägerundholz",
+        content_id == "industrierundholz_monatl" ~ "Industrierundholz",
+        content_id == "brennholz_monatl" ~ "Brenn- und Energieholz",
+        TRUE ~ category_label(gruppe)
+      )
+    ) |>
+    filter(!is.na(preis), preis > 0) |>
+    group_by(kategorie, sortiment, attr_code, einheit) |>
+    filter(datum == max(datum, na.rm = TRUE)) |>
+    summarise(datum = max(datum), preis_mittel = first(preis), .groups = "drop") |>
+    transmute(
+      datum,
+      region = "Österreichweit",
+      kategorie,
+      sortiment,
+      einheit,
+      preis_von = NA_real_,
+      preis_bis = NA_real_,
+      preis_mittel
+    )
+
+  latest_prices <- bind_rows(austria_cards, bundesland_cards) |>
+    arrange(
+      factor(region, levels = c("Österreichweit", sort(unique(bundesland_cards$region)))),
+      factor(kategorie, levels = category_order),
+      sortiment
+    )
+
+  regions <- latest_prices |>
+    distinct(region) |>
+    arrange(factor(region, levels = c("Österreichweit", sort(setdiff(region, "Österreichweit"))))) |>
+    pull(region)
+
+  cat('<div class="price-filter"><label for="region-filter">Region wählen</label>')
+  cat('<select id="region-filter" aria-label="Region wählen">')
+  for (region in regions) {
+    selected <- if_else(region == "Österreichweit", " selected", "")
+    cat(str_c('<option value="', escape_html(region), '"', selected, '>', escape_html(region), '</option>'))
+  }
+  cat('</select></div>')
+
+  estimate_cards <- latest_prices |>
+    filter(kategorie == "Sägerundholz", str_detect(sortiment, "Fichte/Tanne"), str_detect(sortiment, "Media 2b")) |>
+    mutate(
+      gesamt_fm = 24,
+      abc_anteil = 0.8063,
+      abc_fm = gesamt_fm * abc_anteil,
+      erloes_von = abc_fm * coalesce(preis_von, preis_mittel),
+      erloes_bis = abc_fm * coalesce(preis_bis, preis_mittel)
+    )
+
+  if (nrow(estimate_cards) > 0) {
+    cat('<div class="estimate-card-grid">')
+    pwalk(estimate_cards, function(datum, region, kategorie, sortiment, einheit, preis_von, preis_bis, preis_mittel, gesamt_fm, abc_anteil, abc_fm, erloes_von, erloes_bis) {
+      erloes_line <- if (!is.na(preis_von) && !is.na(preis_bis)) {
+        str_c(format_price(erloes_von), '–', format_price(erloes_bis), ' €')
+      } else {
+        str_c(format_price(erloes_von), ' €')
+      }
+
+      cat(str_c(
+        '<section class="estimate-card" data-region="', escape_html(region), '">',
+        '<div class="category">Grobe Erlösorientierung</div>',
+        '<h3>Beispiel: 24 fm Fichte</h3>',
+        '<p>Mit Beispiel-Mischung aus einem realen Einschlag: AB 25,33 %, B 29,18 %, C 26,12 %. Zusammen <strong>80,63 % ABC</strong>.</p>',
+        '<div class="price-main">', erloes_line, '</div>',
+        '<div class="price-muted">für ca. ', format_price(abc_fm), ' fm ABC × ', escape_html(sortiment), '</div>',
+        '<p class="price-muted">Nicht enthalten: Qualitätsabschläge, Cx/Bruch, xKA, Bringung, Transport, Sortierung, Abmaß, Verträge, Steuern.</p>',
+        '</section>'
+      ))
+    })
+    cat('</div>')
+  }
+
+  cat('<div class="price-card-grid">')
+  pwalk(latest_prices, function(datum, region, kategorie, sortiment, einheit, preis_von, preis_bis, preis_mittel) {
+    has_range <- !is.na(preis_von) && !is.na(preis_bis)
+    price_line <- if (has_range) {
+      str_c(format_price(preis_von), '–', format_price(preis_bis))
+    } else {
+      format_price(preis_mittel)
+    }
+    muted_line <- if (has_range) {
+      str_c('Mittelwert: ', format_price(preis_mittel), ' ', einheit)
+    } else {
+      str_c('Bundesweiter Marktpreis ohne von/bis-Spanne')
+    }
+
+    cat(str_c(
+      '<article class="price-card" data-region="', escape_html(region), '">',
+      '<h3>', escape_html(region), '</h3>',
+      '<div class="category">', escape_html(kategorie), '</div>',
+      '<div class="meta">Stand: ', format(datum, "%d.%m.%Y"), '</div>',
+      '<div class="sortiment">', escape_html(sortiment), '</div>',
+      '<div class="price-range">',
+      '<span class="price-main">', price_line, '</span>',
+      '<span class="price-muted">', escape_html(einheit), '</span>',
+      '</div>',
+      '<div class="price-muted">', escape_html(muted_line), '</div>',
+      '</article>'
+    ))
+  })
+  cat('</div>')
+} else {
+  latest_prices <- tibble()
+  cat('<p>Daten fehlen. Starte: <code>Rscript scripts/fetch_agrarforschung_prices.R</code></p>')
+}
+```
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const select = document.getElementById("region-filter");
+  const cards = document.querySelectorAll("[data-region]");
+  if (!select) return;
+
+  const applyFilter = () => {
+    const selected = select.value;
+    cards.forEach((card) => {
+      card.hidden = card.dataset.region !== selected;
+    });
+  };
+
+  select.addEventListener("change", applyFilter);
+  applyFilter();
+});
+</script>
+
+## Wie liest man die Karten?
+
+- **Region**: Österreichweit oder Bundesland.
+- **Kategorie**: Sägerundholz, Industrierundholz oder Brenn-/Energieholz.
+- **Sortiment**: Holzsortiment, z. B. Fichte/Tanne Media 2b, Faserholz oder Schleifholz.
+- **Preis von/bis**: veröffentlichte Preisspanne bei Bundesland-Reihen. Das ist keine Garantie, sondern ein beobachteter/berichteter Bereich.
+- **Mittelwert**: rechnerischer Mittelwert zur schnellen Orientierung.
+- **Einheit**: z. B. `EUR/FM`, `EURO/M3`, `EURO/RM` oder `EURO/AMM`.
+- **Beispiel 24 fm**: grobe Rechnung mit 80,63 % ABC-Anteil aus einem realen Fichten-Einschlag. Das ist bewusst nur Orientierung, keine Abrechnung.
+
+**Einheiten:** Österreichweite Statistik-Austria-Reihen verwenden `EURO/M3`; Bundesland-/LK-Reihen verwenden oft `EUR/FM`. Bei Rundholz sind beide als feste Holzmenge grob vergleichbar, aber die Originaleinheit der Quelle bleibt wichtig. Erklärung: [Glossar](glossar.qmd).
+
+Für langfristige Entwicklungen und Inflation siehe [Tirol Langzeit](tirol.qmd) und [Marktpreise](marktpreise.qmd).
+
+<details>
+<summary>Datenstand</summary>
+
+```{r}
+if (nrow(latest_prices) > 0) {
+  latest_prices |>
+    summarise(
+      letzter_stand = max(datum),
+      regionen = n_distinct(region),
+      kategorien = n_distinct(kategorie),
+      sortimente = n_distinct(sortiment),
+      zeilen = n()
+    ) |>
+    dt_table()
+} else {
+  tibble() |> dt_table()
+}
+```
+
+</details>

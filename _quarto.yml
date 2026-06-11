@@ -1,0 +1,88 @@
+project:
+  type: website
+  output-dir: _site
+  resources:
+    - robots.txt
+  render:
+    - index.qmd
+    - about.qmd
+    - tirol.qmd
+    - marktpreise.qmd
+    - marktpreise-burgenland.qmd
+    - marktpreise-kaernten.qmd
+    - marktpreise-niederoesterreich.qmd
+    - marktpreise-oberoesterreich.qmd
+    - marktpreise-salzburg.qmd
+    - marktpreise-steiermark.qmd
+    - marktpreise-tirol.qmd
+    - marktpreise-vorarlberg.qmd
+    - holzprodukte-schnittholz.qmd
+    - energie.qmd
+    - glossar.qmd
+    - kalk-holzpreisrechner.qmd
+    - kalk-pflanzrechner.qmd
+    - kalk-pflanzkosten.qmd
+
+website:
+  title: "Holzpreise"
+  site-url: "https://www.holzpreise.at"
+  favicon: assets/icons/green.png
+  navbar:
+    left:
+      - href: index.qmd
+        text: Übersicht
+      - text: Marktpreise
+        menu:
+          - href: marktpreise.qmd
+            text: Österreich
+          - href: marktpreise-burgenland.qmd
+            text: Burgenland
+          - href: marktpreise-kaernten.qmd
+            text: Kärnten
+          - href: marktpreise-niederoesterreich.qmd
+            text: Niederösterreich
+          - href: marktpreise-oberoesterreich.qmd
+            text: Oberösterreich
+          - href: marktpreise-salzburg.qmd
+            text: Salzburg
+          - href: marktpreise-steiermark.qmd
+            text: Steiermark
+          - href: marktpreise-tirol.qmd
+            text: Tirol
+          - href: marktpreise-vorarlberg.qmd
+            text: Vorarlberg
+      - text: Wissen
+        menu:
+          - href: tirol.qmd
+            text: Inflation (Tirol)
+          - href: holzprodukte-schnittholz.qmd
+            text: Holzprodukte & Schnittholz
+          - href: energie.qmd
+            text: Energie
+          - href: glossar.qmd
+            text: Glossar
+      - text: Rechner
+        menu:
+          - href: kalk-holzpreisrechner.qmd
+            text: Holzpreisrechner
+          - href: kalk-pflanzrechner.qmd
+            text: Pflanzrechner
+          - href: kalk-pflanzkosten.qmd
+            text: Pflanzkostenrechner
+      - href: about.qmd
+        text: Über das Projekt
+    right:
+      - icon: github
+        href: https://github.com/HannesOberreiter/holzpreise
+        aria-label: GitHub repository
+
+format:
+  html:
+    theme:
+      light: cosmo
+      dark: darkly
+    css: styles.css
+    toc: false
+    lang: de
+execute:
+  freeze: auto

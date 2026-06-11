@@ -1,0 +1,462 @@
+/* Global layout variables and shared font stack. */
+:root {
+  --content-max-width: 1600px;
+  --bs-body-font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+}
+
+/* German-friendly text wrapping for long compound words. */
+html,
+body {
+  hyphens: auto;
+  overflow-wrap: break-word;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Navbar sizing: keeps dark/light toggle from changing header height. */
+.navbar {
+  min-height: 56px;
+  padding-top: 0.35rem !important;
+  padding-bottom: 0.35rem !important;
+}
+
+.navbar .nav-link,
+.navbar .navbar-brand,
+.navbar .dropdown-item,
+.quarto-navbar-tools .quarto-navigation-tool {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.quarto-navbar-tools .quarto-navigation-tool {
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quarto-navbar-tools .bi {
+  width: 1.25rem;
+  height: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Main content width and centering. */
+main.content,
+.page-columns .content {
+  max-width: 1600px;
+  width: min(1600px, calc(100vw - 3rem));
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (min-width: 992px) {
+  .page-columns {
+    display: block !important;
+  }
+}
+
+/* Shared calculator layout and form controls. */
+.calculator-card {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+  align-items: stretch;
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px solid #dee2e6;
+  border-radius: 0.75rem;
+  background: #f8f9fa;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.calculator-card label {
+  font-weight: 700;
+}
+
+.calculator-card select,
+.calculator-card input {
+  width: 100%;
+  min-height: 2.8rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid #adb5bd;
+  border-radius: 0.55rem;
+  background: #fff;
+  font-size: 1rem;
+}
+
+.calculator-result {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.calculator-result div {
+  padding: 0.85rem;
+  border-radius: 0.6rem;
+  background: #fff;
+  border: 1px solid #dee2e6;
+}
+
+.calculator-result strong {
+  display: block;
+  font-size: 1.45rem;
+}
+
+.calculator-result p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #6c757d;
+}
+
+/* Pflanzrechner/Pflanzkosten dynamic row controls. */
+.plant-toolbar {
+  margin: 0.5rem 0;
+}
+
+.plant-toolbar button,
+.plant-remove {
+  min-height: 2.6rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid #198754;
+  border-radius: 0.55rem;
+  background: #198754;
+  color: #fff;
+  font-weight: 700;
+}
+
+.plant-remove {
+  border-color: #6c757d;
+  background: #6c757d;
+}
+
+.plant-rows {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.plant-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) repeat(3, minmax(130px, 1fr)) auto;
+  gap: 0.65rem;
+  align-items: end;
+  padding: 0.85rem;
+  border: 1px solid #dee2e6;
+  border-radius: 0.65rem;
+  background: #fff;
+}
+
+.plant-cost-row {
+  grid-template-columns: minmax(220px, 1.5fr) minmax(110px, 0.8fr) minmax(130px, 1fr) minmax(150px, 1fr) auto;
+}
+
+.plant-row label {
+  display: grid;
+  gap: 0.25rem;
+  font-weight: 700;
+}
+
+/* Section headings inside calculator result card grids. */
+.calculator-section-title {
+  grid-column: 1 / -1;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #dee2e6;
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+.calculator-warning {
+  color: #b45309 !important;
+  font-weight: 700;
+}
+
+/* Prominent region/filter box on overview pages. */
+.price-filter {
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) 1fr;
+  align-items: center;
+  gap: 1rem;
+  margin: 1.5rem 0 1.75rem;
+  padding: 1rem;
+  border: 1px solid #dee2e6;
+  border-radius: 0.75rem;
+  background: #f8f9fa;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.price-filter label {
+  font-weight: 700;
+  font-size: 1.15rem;
+  margin: 0;
+}
+
+.price-filter select {
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid #adb5bd;
+  border-radius: 0.55rem;
+  background: #fff;
+  font-size: 1.1rem;
+}
+
+/* Responsive card grids for current prices and estimate examples. */
+.price-card-grid,
+.estimate-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.estimate-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.price-card,
+.estimate-card {
+  border: 1px solid #dee2e6;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.price-card h3,
+.estimate-card h3 {
+  margin-top: 0;
+  margin-bottom: 0.35rem;
+  font-size: 1.1rem;
+}
+
+.price-card .meta {
+  color: #6c757d;
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+}
+
+.price-card .category,
+.estimate-card .category {
+  display: inline-block;
+  margin-bottom: 0.45rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: #e9ecef;
+  color: #495057;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.price-card .sortiment {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.price-range {
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin-bottom: 0.4rem;
+}
+
+.price-main {
+  font-size: 1.55rem;
+  font-weight: 700;
+}
+
+.price-muted {
+  color: #6c757d;
+  font-size: 0.95rem;
+}
+
+.price-card a {
+  display: inline-block;
+  margin-top: 0.35rem;
+}
+
+/* Dark mode overrides for custom cards and calculators. */
+body.quarto-dark .price-card,
+body.quarto-dark .estimate-card {
+  background: #212529;
+  border-color: #495057;
+  color: #f8f9fa;
+}
+
+body.quarto-dark .price-card .meta,
+body.quarto-dark .price-card .price-muted,
+body.quarto-dark .estimate-card .price-muted {
+  color: #adb5bd;
+}
+
+body.quarto-dark .price-card .category,
+body.quarto-dark .estimate-card .category {
+  background: #343a40;
+  color: #dee2e6;
+}
+
+body.quarto-dark .calculator-card,
+body.quarto-dark .calculator-result div,
+body.quarto-dark .plant-row {
+  background: #212529;
+  border-color: #495057;
+}
+
+body.quarto-dark .calculator-card select,
+body.quarto-dark .calculator-card input {
+  background: #343a40;
+  color: #f8f9fa;
+  border-color: #6c757d;
+}
+
+body.quarto-dark .calculator-result p {
+  color: #adb5bd;
+}
+
+body.quarto-dark .calculator-section-title {
+  border-top-color: #495057;
+}
+
+body.quarto-dark .calculator-warning {
+  color: #fbbf24 !important;
+}
+
+body.quarto-dark .price-filter {
+  background: #212529;
+  border-color: #495057;
+}
+
+body.quarto-dark .price-filter select {
+  background: #343a40;
+  color: #f8f9fa;
+  border-color: #6c757d;
+}
+
+/* Dark mode overrides for DataTables widgets. */
+body.quarto-dark .datatables,
+body.quarto-dark .dataTables_wrapper,
+body.quarto-dark .dataTables_wrapper label,
+body.quarto-dark .dataTables_wrapper .dataTables_info,
+body.quarto-dark .dataTables_wrapper .dataTables_length,
+body.quarto-dark .dataTables_wrapper .dataTables_filter {
+  color: #f8f9fa !important;
+}
+
+body.quarto-dark table.dataTable,
+body.quarto-dark table.dataTable tbody,
+body.quarto-dark table.dataTable tbody tr,
+body.quarto-dark table.dataTable.display tbody tr,
+body.quarto-dark table.dataTable.stripe tbody tr {
+  background-color: #212529 !important;
+  color: #f8f9fa !important;
+}
+
+body.quarto-dark table.dataTable tbody td,
+body.quarto-dark table.dataTable thead th,
+body.quarto-dark table.dataTable tfoot th {
+  border-color: #495057 !important;
+  color: #f8f9fa !important;
+}
+
+body.quarto-dark table.dataTable thead,
+body.quarto-dark table.dataTable thead th {
+  background-color: #343a40 !important;
+}
+
+body.quarto-dark table.dataTable.hover tbody tr:hover,
+body.quarto-dark table.dataTable.display tbody tr:hover,
+body.quarto-dark table.dataTable tbody tr:hover,
+body.quarto-dark table.dataTable.display tbody tr.odd:hover,
+body.quarto-dark table.dataTable.display tbody tr.even:hover {
+  background-color: #2b3035 !important;
+}
+
+body.quarto-dark .dataTables_wrapper input,
+body.quarto-dark .dataTables_wrapper select {
+  background-color: #212529 !important;
+  color: #f8f9fa !important;
+  border: 1px solid #495057 !important;
+}
+
+body.quarto-dark .dataTables_wrapper .paginate_button {
+  color: #f8f9fa !important;
+}
+
+body.quarto-dark .dataTables_wrapper .paginate_button.current,
+body.quarto-dark .dataTables_wrapper .paginate_button.current:hover {
+  background: #495057 !important;
+  border-color: #6c757d !important;
+  color: #fff !important;
+}
+
+/* Mobile layout: reduce padding and stack cards/forms. */
+@media (max-width: 768px) {
+  main.content,
+  .page-columns .content {
+    width: auto;
+    max-width: none;
+    margin-left: 0.10rem;
+    margin-right: 0.10rem;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .page-columns {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .calculator-card {
+    padding: 0.75rem;
+  }
+
+  .calculator-result {
+    grid-template-columns: 1fr;
+  }
+
+  .plant-row {
+    grid-template-columns: 1fr;
+  }
+
+  .plant-toolbar button,
+  .plant-remove {
+    width: 100%;
+  }
+
+  .price-filter {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+    padding: 0.75rem;
+    margin: 1rem 0 1.25rem;
+  }
+
+  .price-filter label {
+    font-size: 1rem;
+  }
+
+  .price-filter select {
+    width: 100%;
+    min-height: 2.8rem;
+    font-size: 1rem;
+  }
+
+  .price-card-grid,
+  .estimate-card-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .price-card,
+  .estimate-card {
+    padding: 0.85rem;
+  }
+
+  .price-main {
+    font-size: 1.35rem;
+  }
+}

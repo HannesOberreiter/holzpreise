@@ -1,0 +1,78 @@
+---
+title: "Glossar"
+---
+
+## Wichtige Begriffe
+
+### Festmeter / fm
+
+Ein **Festmeter (fm)** ist ein Kubikmeter feste Holzmasse. In Holzpreisberichten wird Rundholz oft in `EUR/FM` angegeben.
+
+### m³ / M3
+
+`m³` bedeutet Kubikmeter. In den österreichweiten Statistik-Austria-Reihen von preise.agrarforschung.at steht die Einheit als `EURO/M3`. Bei Rundholz ist das als fester Kubikmeter zu verstehen und damit grob mit `EUR/FM` vergleichbar. Wichtig: Die Originaleinheit der Quelle bleibt maßgeblich.
+
+### EUR/FM und EURO/M3
+
+Beide Einheiten beschreiben einen Preis pro feste Holzmenge. Unterschied kommt hier vor allem aus der Quellensprache:
+
+- Bundesland-/LK-Reihen: meist `EUR/FM`
+- Österreichweite Statistik-Austria-Reihen: `EURO/M3`
+
+Die Website benennt Einheiten nicht still um, damit die Quelle nachvollziehbar bleibt.
+
+### RUPI-Tirol
+
+Rundholzpreisindex Tirol. Er beschreibt Preisentwicklung für Fichtenblochholz in Tirol.
+
+### BHI-Tirol
+
+Brennholzpreisindex Tirol. Er beschreibt Preisentwicklung für Brennholz in Tirol.
+
+### Blochholz
+
+Sägerundholz, das für Sägewerke bestimmt ist. Typisch: Fichte/Tanne, Kiefer, Lärche, Buche.
+
+### Media 2b
+
+Ein Leitsortiment bei Fichte/Tanne-Blochholz. Es wird oft als Orientierung für Sägerundholzpreise verwendet.
+
+### Faserholz
+
+Industrieholz für Zellstoff, Papier oder Plattenindustrie. Andere Preisbildung als Sägerundholz.
+
+### Schleifholz
+
+Industrieholz, historisch für mechanische Holzstofferzeugung. Wird oft gemeinsam mit Faserholz betrachtet.
+
+### Brennholz
+
+Holz zur energetischen Nutzung, z. B. hartes/weiches Brennholz in Raummeter oder Festmeter je Quelle.
+
+### RM / Raummeter
+
+Ein Raummeter ist ein Kubikmeter geschichtetes Holz inklusive Luftzwischenräumen. Nicht direkt gleich wie Festmeter.
+
+### AMM
+
+Atro-Tonne bzw. atro-Maßeinheit in manchen Energie-/Industrieholz-Kontexten. Wassergehalt spielt eine Rolle; nicht direkt mit fm vergleichbar.
+
+### Preis von / Preis bis
+
+Veröffentlichte Preisspanne. Sie ist keine Garantie, sondern ein beobachteter oder berichteter Bereich.
+
+### Mittelwert
+
+Rechnerischer Mittelwert aus `Preis von` und `Preis bis`, wenn ein Preisband vorliegt. Nur Orientierung.
+
+### Nominal
+
+Preis in damaligen Euro, ohne Inflationsbereinigung.
+
+### Inflationsbereinigt / real
+
+Preis um allgemeine Teuerung bereinigt. Zeigt näherungsweise, wie viel Kaufkraft der Preis heute hätte.
+
+### Index
+
+Vergleichszahl. Wenn 2010 = 100 und ein späterer Wert 150 ist, dann ist die Reihe relativ um 50 % gestiegen.

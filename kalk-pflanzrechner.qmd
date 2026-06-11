@@ -161,8 +161,6 @@ Als Startwert ist ein einfaches Beispiel für **1 Hektar** eingetragen:
 
 1 Hektar ist als Einstieg leichter nachvollziehbar, weil das genau **10.000 m²** sind. Bei unterschiedlichen Pflanzabständen berechnet der Rechner zuerst eine gewichtete mittlere Fläche pro Pflanze. Deshalb können die Flächenanteile am Ende anders aussehen als die Stückzahlanteile.
 
-Für deinen konkreten Fall kannst du die Fläche auf **0,21 Hektar** ändern. Wenn du händisch auf ungefähr **330 Eichen**, **220 Winterlinden** und **60 Berg-Ahorne** kommst, ist das plausibel, wenn Wege, Rand zum Bestand, unbepflanzte Teilflächen oder gruppenweise Pflanzung mitgedacht sind. Der Rechner ist eine rechnerische Orientierung, kein Pflanzplan.
-
 ## Kosten
 
 Materialkosten werden bewusst getrennt gerechnet. Nutze dafür den [Pflanzkostenrechner](kalk-pflanzkosten.qmd). Dort kannst du Pflanzen, Baumschutzhüllen, Pflöcke und weitere Positionen mit Menge und Stückpreis erfassen.

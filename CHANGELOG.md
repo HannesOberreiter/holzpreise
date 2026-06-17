@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/HannesOberreiter/holzpreise/compare/v1.1.0...v1.1.1) (2026-06-11)
+
+
+### Bug Fixes
+
+* :bug: remove old reference text ([1f9770e](https://github.com/HannesOberreiter/holzpreise/commit/1f9770e3cb23bc95680be92584747cff508c86c3))
+
 ## [1.1.0](https://github.com/HannesOberreiter/holzpreise/compare/v1.0.0...v1.1.0) (2026-06-11)
 
 
